@@ -1,2 +1,2 @@
 # NetFuzzer
-![image](https://github.com/weizn11/NetFuzzer/blob/master/img/flow.jpg)
+![image](https://github.com/weizn11/NetFuzzer/raw/master/img/flow.jpg)
