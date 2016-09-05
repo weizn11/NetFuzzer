@@ -1,0 +1,242 @@
+diff -up sulley/sulley/blocks.py sulley_l2/sulley/blocks.py
+--- sulley/sulley/blocks.py	2007-08-07 21:49:37.000000000 +0200
++++ sulley_l2/sulley/blocks.py	2008-02-13 14:16:31.000000000 +0100
+@@ -666,7 +666,7 @@ class size:
+     user does not need to be wary of this fact.
+     '''
+ 
+-    def __init__ (self, block_name, request, length=4, endian="<", format="binary", inclusive=False, signed=False, math=None, fuzzable=False, name=None):
++    def __init__ (self, block_name, request, length=4, length_in_bits=False, endian="<", format="binary", inclusive=False, signed=False, math=None, fuzzable=False, name=None):
+         '''
+         Create a sizer block bound to the block with the specified name. You *can not* create a sizer for any
+         currently open blocks.
+@@ -677,6 +677,8 @@ class size:
+         @param request:    Request this block belongs to
+         @type  length:     Integer
+         @param length:     (Optional, def=4) Length of sizer
++        @type  length_in_bits:	Boolean
++        @param length_in_bits:	(Optional, def=False) If the length arg is in bit, otherwise its in byte
+         @type  endian:     Character
+         @param endian:     (Optional, def=LITTLE_ENDIAN) Endianess of the bit field (LITTLE_ENDIAN: <, BIG_ENDIAN: >)
+         @type  format:     String
+@@ -696,6 +698,7 @@ class size:
+         self.block_name    = block_name
+         self.request       = request
+         self.length        = length
++        self.length_in_bits = length_in_bits
+         self.endian        = endian
+         self.format        = format
+         self.inclusive     = inclusive
+@@ -706,7 +709,10 @@ class size:
+         
+         self.original_value = "N/A"    # for get_primitive
+         self.s_type         = "size"   # for ease of object identification
+-        self.bit_field      = primitives.bit_field(0, self.length*8, endian=self.endian, format=self.format, signed=self.signed)
++        if length_in_bits:
++        	self.bit_field      = primitives.bit_field(0, self.length, endian=self.endian, format=self.format, signed=self.signed)
++        else:
++        	self.bit_field      = primitives.bit_field(0, self.length*8, endian=self.endian, format=self.format, signed=self.signed)
+         self.rendered       = ""
+         self.fuzz_complete  = self.bit_field.fuzz_complete
+         self.fuzz_library   = self.bit_field.fuzz_library
+@@ -773,7 +779,13 @@ class size:
+             else:              self_size = 0
+ 
+             block                = self.request.closed_blocks[self.block_name]
+-            self.bit_field.value = self.math(len(block.rendered) + self_size)
++            if self.length_in_bits:
++            	# we have to write the length in bytes, make shure you fill your sizer to a byte border
++            	if (len(block.rendered) * 8 + self_size) % 8:
++            		raise sex.error("BLOCK " + self.name + " DIDNT FILL UP TO BYTE BORDER\n")
++            	self.bit_field.value = self.math((len(block.rendered) * 8 + self_size) / 8)
++            else:
++            	self.bit_field.value = self.math(len(block.rendered) + self_size)
+             self.rendered        = self.bit_field.render()
+ 
+         # otherwise, add this sizer block to the requests callback list.
+@@ -789,4 +801,4 @@ class size:
+         Wrap the reset routine of the internal bit_field primitive.
+         '''
+ 
+-        self.bit_field.reset()
+\ Kein Zeilenumbruch am Dateiende.
++        self.bit_field.reset()
+Nur in sulley_l2/sulley/: blocks.pyc.
+diff -up sulley/sulley/__init__.py sulley_l2/sulley/__init__.py
+--- sulley/sulley/__init__.py	2007-07-23 18:25:39.000000000 +0200
++++ sulley_l2/sulley/__init__.py	2008-02-12 21:00:58.000000000 +0100
+@@ -207,10 +207,12 @@ def s_repeat (block_name, min_reps=0, ma
+     blocks.CURRENT.push(repeat)
+ 
+ 
+-def s_size (block_name, length=4, endian="<", format="binary", inclusive=False, signed=False, math=None, fuzzable=False, name=None):
++def s_size (block_name, length=4, length_in_bits=False, endian="<", format="binary", inclusive=False, signed=False, math=None, fuzzable=False, name=None):
+     '''
+     Create a sizer block bound to the block with the specified name. You *can not* create a sizer for any
+     currently open blocks.
++    
++    If you want to use the length_in_bits, be shure you fill to a byte border, else the size will be wrong !!!
+ 
+     @see: Aliases: s_sizer()
+ 
+@@ -218,6 +220,8 @@ def s_size (block_name, length=4, endian
+     @param block_name: Name of block to apply sizer to
+     @type  length:     Integer
+     @param length:     (Optional, def=4) Length of sizer
++    @type  length_in_bits:	Boolean
++    @param length_in_bits:	(Optional, def=False) If the length arg is in bit, otherwise its in byte
+     @type  endian:     Character
+     @param endian:     (Optional, def=LITTLE_ENDIAN) Endianess of the bit field (LITTLE_ENDIAN: <, BIG_ENDIAN: >)
+     @type  format:     String
+@@ -238,7 +242,7 @@ def s_size (block_name, length=4, endian
+     if block_name in blocks.CURRENT.block_stack:
+         raise sex.error("CAN NOT ADD A SIZE FOR A BLOCK CURRENTLY IN THE STACK")
+ 
+-    size = blocks.size(block_name, blocks.CURRENT, length, endian, format, inclusive, signed, math, fuzzable, name)
++    size = blocks.size(block_name, blocks.CURRENT, length, length_in_bits, endian, format, inclusive, signed, math, fuzzable, name)
+     blocks.CURRENT.push(size)
+ 
+ 
+@@ -429,7 +433,7 @@ def s_bit_field (value, width, endian="<
+     @param name:       (Optional, def=None) Specifying a name gives you direct access to a primitive
+     '''
+ 
+-    bit_field = primitives.bit_field(value, width, endian, format, signed, full_range, fuzzable, name)
++    bit_field = primitives.bit_field(value, width, None, endian, format, signed, full_range, fuzzable, name)
+     blocks.CURRENT.push(bit_field)
+ 
+ 
+Nur in sulley_l2/sulley/: __init__.pyc.
+Gemeinsame Unterverzeichnisse: sulley/sulley/legos und sulley_l2/sulley/legos.
+Nur in sulley_l2/sulley/: pedrpc.pyc.
+Gemeinsame Unterverzeichnisse: sulley/sulley/pgraph und sulley_l2/sulley/pgraph.
+Nur in sulley_l2/sulley/: primitives.pyc.
+diff -up sulley/sulley/sessions.py sulley_l2/sulley/sessions.py
+--- sulley/sulley/sessions.py	2007-08-13 20:47:09.000000000 +0200
++++ sulley_l2/sulley/sessions.py	2008-02-13 14:17:05.000000000 +0100
+@@ -7,6 +7,12 @@ import cPickle
+ import threading
+ import BaseHTTPServer
+ 
++# Use libdnet for layer2 support
++import dnet
++
++# Threads
++import thread
++
+ import pedrpc
+ import pgraph
+ import sex
+@@ -106,7 +112,7 @@ class connection (pgraph.edge.edge):
+ 
+ ########################################################################################################################
+ class session (pgraph.graph):
+-    def __init__ (self, session_filename=None, skip=0, sleep_time=1.0, log_level=2, proto="tcp", restart_interval=0, timeout=5.0, web_port=26000, crash_threshold=3):
++    def __init__ (self, session_filename=None, skip=0, sleep_time=1.0, log_level=2, proto="tcp", iface="eth0", restart_interval=0, timeout=5.0, web_port=26000, crash_threshold=3):
+         '''
+         Extends pgraph.graph and provides a container for architecting protocol dialogs.
+ 
+@@ -141,6 +147,9 @@ class session (pgraph.graph):
+         self.web_port            = web_port
+         self.crash_threshold     = crash_threshold
+ 
++        self.layer2	             = False
++        self.iface               = iface
++
+         self.total_num_mutations = 0
+         self.total_mutant_index  = 0
+         self.fuzz_node           = None
+@@ -154,9 +163,11 @@ class session (pgraph.graph):
+             self.proto = socket.SOCK_STREAM
+         elif self.proto == "udp":
+             self.proto = socket.SOCK_DGRAM
++        elif self.proto == "layer2":
++        	self.layer2 = True
+         else:
+             raise sex.error("INVALID PROTOCOL SPECIFIED: %s" % self.proto)
+-
++        
+         # import settings if they exist.
+         self.import_file()
+ 
+@@ -328,6 +339,9 @@ class session (pgraph.graph):
+             except: return
+ 
+         # XXX - TODO - complete parallel fuzzing, will likely have to thread out each target
++        #for i in self.targets
++        #    thread.start_new_thread(fuzz_call(i))
++        
+         target = self.targets[0]
+ 
+         # step through every edge from the current node.
+@@ -384,9 +398,14 @@ class session (pgraph.graph):
+                             if target.netmon:  target.netmon.pre_send(self.total_mutant_index)
+ 
+                             # establish a connection to the target.
+-                            sock = socket.socket(socket.AF_INET, self.proto)
+-                            sock.settimeout(self.timeout)
+-                            sock.connect((target.host, target.port))
++                            if self.layer2:
++                                # open Libdnet layer2 interface
++                                sock = dnet.eth(self.iface)
++                                #self.log("source ethernet address: %r" % (sock.get()))
++                            else:
++                                sock = socket.socket(socket.AF_INET, self.proto)
++                                sock.settimeout(self.timeout)
++                                sock.connect((target.host, target.port))
+ 
+                             # if the user registered a pre-send function, pass it the sock and let it do the deed.
+                             self.pre_send(sock)
+@@ -406,10 +425,14 @@ class session (pgraph.graph):
+                             sys.stderr.write("CAUGHT SULLEY EXCEPTION\n")
+                             sys.stderr.write("\t" + e.__str__() + "\n")
+                             sys.exit(1)
++                            
++                        except OSError, e:
++                        	sys.stderr.write("SOMETHING WENT WRONG ON L2 SEND. ARE YOU ROOT? RIGHT INTEFACE?\n")
++                        	sys.exit(1)
+ 
+                         except:
+                             # close the socket.
+-                            sock.close()
++                            if not self.layer2: sock.close()
+ 
+                             self.log("failed connecting to %s:%d" % (target.host, target.port))
+ 
+@@ -422,11 +445,11 @@ class session (pgraph.graph):
+                     self.post_send(sock)
+ 
+                     # done with the socket.
+-                    sock.close()
++                    if not self.layer2: sock.close()
+ 
+                     # delay in between test cases.
+                     self.log("sleeping for %f seconds" % self.sleep_time, 5)
+-                    time.sleep(self.sleep_time)
++#                    time.sleep(self.sleep_time)
+ 
+                     # poll the PED-RPC endpoints (netmon, procmon etc...) for the target.
+                     self.poll_pedrpc(target)
+@@ -705,6 +728,12 @@ class session (pgraph.graph):
+                 self.log("Too much data for UDP, truncating to 65507 bytes")
+                 data = data[:65507]
+ 
++		if self.layer2:
++			# max ETHERNET frame size
++			if len(data) > 1518:
++				self.log("Too much data for ETHERNET, truncating to 1500 bytes")
++				data = data[:1518]
++			
+         try:
+             sock.send(data)
+         except Exception, inst:
+@@ -994,4 +1023,4 @@ class web_interface_thread (threading.Th
+ 
+     def run (self):
+         self.server = web_interface_server(('', self.session.web_port), web_interface_handler, self.session)
+-        self.server.serve_forever()
+\ Kein Zeilenumbruch am Dateiende.
++        self.server.serve_forever()
+Nur in sulley_l2/sulley/: sessions.pyc.
+Nur in sulley_l2/sulley/: sex.pyc.
+Gemeinsame Unterverzeichnisse: sulley/sulley/utils und sulley_l2/sulley/utils.
