@@ -39,6 +39,14 @@ class request (pgraph.node):
             raise Exception
         self.max_mutations = primitives.gl_max_mutations
 
+    def get_name(self):
+        '''
+        @desc: 获取这个数据结构的名称
+        @type: String
+        @return: 返回名称
+        '''
+        return self.name
+
     def set_field_data(self, name, data):
         '''
         @param name: 字段名

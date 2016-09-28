@@ -41,47 +41,52 @@ class target:
     def __init__ (self, host, port):
         '''
         @type  host: String
-        @param host: Hostname or IP address of target system
+        @param host: Fuzz目标地址
         @type  port: Integer
-        @param port: Port of target service
+        @param port: Fuzz目标端口
         '''
 
+        #Fuzz目标地址
         self.host      = host
         self.port      = port
 
-        # set these manually once target is instantiated.
-        self.procmon           = None
+        #进程监视器
+        self.procmon           = None   #type : pedrpc.client()
         self.procmon_options   = {}
-
+        #进程监视器连接标识
         self.connFlag = False
+        #进程监视器启动标识
         self.startFlag = False
+        #进程监视器Socket
+        self.procmonSocket = None
         '''
-        procmon_options = \
+        procmon_options =
         {
-            "gdb_path" : "",
-            "debug_file" : "",
-            "gdb_cmd" : [],
-            "proc_args" : "",
-            "crash_cmd" : []
-            "wait_time" : 1
+            "gdb_path" : "",            #gdb文件路径
+            "debug_file" : "",          #debug的文件，可为空
+            "gdb_cmd" : [],             #gdb其它启动命令
+            "proc_args" : "",           #启动进程的参数
+            "crash_cmd" : []            #发生crash后，gdb获取crash信息命令
+            "continue_spacing" : 1      #等待进程反应时间
         }
         '''
-        self.procmonSocket = None
-
 
     def procmon_connect (self):
         '''
-        connect to proc monitor
+        @desc:  connect to proc monitor
         '''
 
         if self.procmon and not self.connFlag:
             debugOptions = protocol.Debug_Options(self.procmon_options)
+            #连接到进程监视器
             self.procmon.connect()
+            #发送Debug参数
             self.procmon.ex_send(debugOptions)
 
     def procmon_start(self):
         if not self.procmon or self.startFlag:
             return
+        #启动进程监视器
         debugCmd = protocol.Debug_Cmd("start")
         self.procmon.ex_send(debugCmd)
 
@@ -90,7 +95,7 @@ class target:
 ########################################################################################################################
 
 class custom_sock():
-    def __init__(self,target,ex_send_callback):
+    def __init__(self,target, ex_send_callback):
         self.ex_send_callback = ex_send_callback
         self.target = target
 
@@ -99,7 +104,7 @@ class custom_sock():
             raise Exception
 
     def send(self,data):
-        self.ex_send_callback(self.target,data)
+        self.ex_send_callback(self.target, data)
 
     def close(self):
         pass
@@ -122,7 +127,7 @@ class session ():
                   sniff_filter="",          #设置数据包过滤
                   keep_alive=False,         #是否保持socket连接
                   ex_send_callback = None,  #自定义发包回调函数
-                  send_sleep_time=0.0       #
+                  send_sleep_time=0.0       #发送每个测试用例的时间间隔
                 ):
 
         self.loop_sleep_time          = loop_sleep_time
@@ -204,11 +209,10 @@ class session ():
 
         return self
 
-
     ####################################################################################################################
     def add_target (self, target):
         '''
-        @type  target: session.target
+        @type  target: session.target()
         @param target: Target to add to session
         '''
 
@@ -219,27 +223,46 @@ class session ():
         self.fuzz_targets.append(target)
 
     ####################################################################################################################
-    def connect_failed_callback(self,sock,target):
-        return (False,None)
-
-    def send_failed_callback(self,target,data):
+    def connect_failed_callback(self, sock, target):
         '''
+        @type socket
+        @param sock:    连接目标的socket
+        @type session.target()
+        @param target:  Fuzz目标
+        @return: (boolean, String) 1.True:重新连接 2.退出程序
+        '''
+        return False
 
-        @param target:
-        @param data:
-        @return: True:reconn  False:exit
+    def send_failed_callback(self, target, data):
+        '''
+        @type: sessions.target()
+        @param target: Fuzz目标
+        @type: String
+        @param data: 发送的数据包
+        @return: True:重新进行连接  False:退出程序
         '''
 
         return False
 
-    def block_mutate_callback(self,block):
+    def block_mutate_callback(self, block):
+        '''
+        @type: blocks.request()
+        @param block: 新生成的测试用例
+        @return: 无返回值
+        '''
         pass
 
     def start_wait_callback(self):
         print "wait for proc monitor start..."
         time.sleep(3)
 
-    def fetch_proc_crash_callback(self,report):
+    def fetch_proc_crash_callback(self, report):
+        '''
+        @desc: 进程监视器已捕获到crash信息
+        @type: String
+        @param report: crash报告
+        @return: (boolean)  1.True:继续进行接下来的流程 False:退出程序
+        '''
         return False
 
     def fuzz (self):
@@ -274,6 +297,12 @@ class session ():
         f_target.procmon_start()
 
         self.start_wait_callback()
+        print "Total mutations: " + str(self.total_num_mutations) + "\n"
+        print "Press CTRL/C to cancel in ",
+        for i in range(3):
+            print str(3 - i) + " ",
+            sys.stdout.flush()
+            time.sleep(1)
 
         done_with_fuzz_node = False
 
@@ -339,7 +368,7 @@ class session ():
                         except Exception, e:
                             error_handler(e, "failed connecting on socket", sock)
                             sock = None
-                            reconn = self.connect_failed_callback(sock,f_target)
+                            reconn = self.connect_failed_callback(sock, f_target)
                             if not reconn:
                                 os._exit(0)
                             continue
@@ -369,7 +398,7 @@ class session ():
                 blockIndex += 1
 
             #输出日志
-            if blockIndex >=len(self.fuzz_blocks):
+            if blockIndex >= len(self.fuzz_blocks):
                 self.logger.info("sleeping for %f seconds\n-------------------------------------------------" % self.loop_sleep_time)
                 time.sleep(self.loop_sleep_time)
                 newMutant = True
@@ -377,77 +406,72 @@ class session ():
                 self.logger.info("sleeping for %f seconds\n-------------------------------------------------" % self.send_sleep_time)
                 time.sleep(self.send_sleep_time)
 
-
     ####################################################################################################################
-    ####################################################################################################################
-    def post_send_callback(self,sock,data):
-        return (False,False)
+    def post_send_callback(self, sock, data):
+        '''
+        @type:  Socket
+        @param sock: 连接到Fuzz目标的Socket
+        @type:  String
+        @param data: 发送的数据包
+        @return: (boolean, boolean) 1.True: 重新发送此数据包 False:不用重新发送  2.True: 用新的测试用例再次测试此步骤 False:不用再做此步骤测试
+        '''
+        return (False, False)
 
     def post_send (self, sock, data):
         '''
-        Overload or replace this routine to specify actions to run after to each fuzz request. The order of events is
-        as follows::
-
-            pre_send() - req - callback ... req - callback - post_send()
-
-        When fuzzing RPC for example, register this method to tear down the RPC request.
-
-        @see: pre_send()
-
-        @type  sock: Socket
-        @param sock: Connected socket to target
-        @return True:resend  or  False
+        @type:  Socket
+        @param sock: 连接到Fuzz目标的Socket
+        @type:  String
+        @param data: 发送的数据包
+        @return: (boolean, boolean) 1.True: 重新发送此数据包 False:不用重新发送  2.True: 用新的测试用例再次测试此步骤 False:不用再做此步骤测试
         '''
 
-        # default to doing nothing.
-        (resend,againMutate) = self.post_send_callback(sock, data)
+        (resend, againMutate) = self.post_send_callback(sock, data)
 
-        return (resend,againMutate)
+        return (resend, againMutate)
 
 
     ####################################################################################################################
-    def packet_handler_callback(self,pkt):
+    def packet_handler_callback(self, pkt):
+        '''
+        @type: Packet
+        @param pkt: 通过Scapy sniff()函数抓取的数据包
+        @return: 无返回值
+        '''
         pass
 
-    def pre_send_callback(self,sock,blockName,_data):
-        data = _data
+    def pre_send_callback(self, sock, blockName, data):
+        '''
+        @type: Socket
+        @param sock: 连接到Fuzz目标的Socket
+        @type: String
+        @param blockName: 当前Fuzz的数据结构名
+        @type: String
+        @param _data: 将要发送的数据包
+        @type: String
+        @return: 返回修改后的发送数据包
+        '''
+
         return data
 
-    def pre_send (self, sock,blockName,_data):
+    def pre_send (self, sock, blockName, _data):
         '''
-        Overload or replace this routine to specify actions to run prior to each fuzz request. The order of events is
-        as follows::
-
-            pre_send() - req - callback ... req - callback - post_send()
-
-        When fuzzing RPC for example, register this method to establish the RPC bind.
-
-        @see: pre_send()
-
-        @type  sock: Socket
-        @param sock: Connected socket to target
+        @type: Socket
+        @param sock: 连接到Fuzz目标的Socket
+        @type: String
+        @param blockName: 当前Fuzz的数据结构名
+        @type: String
+        @param _data: 将要发送的数据包
+        @type: String
+        @return: 返回修改后的发送数据包
         '''
 
-        # default to doing nothing.
         data = self.pre_send_callback(sock,blockName,_data)
 
         return data
 
     ####################################################################################################################
-    def transmit (self, sock, block, target,_data=None):
-        '''
-        Render and transmit a node, process callbacks accordingly.
-
-        @type  sock:   Socket
-        @param sock:   Socket to transmit node on
-        @type  node:   Request (Node)
-        @param node:   Request/Node to transmit
-        @type  edge:   Connection (pgraph.edge)
-        @param edge:   Edge along the current fuzz path from "node" to next node.
-        @type  target: session.target
-        @param target: Target we are transmitting to
-        '''
-
+    def transmit (self, sock, block, target, _data=None):
         sendFlag = True
         againMutate = False
         reconn = False

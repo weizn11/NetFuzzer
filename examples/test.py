@@ -61,22 +61,10 @@ class fuzzer():
     def sniff_packet_handler(self,pkt):
         print len(pkt)
 
-print "Total mutations: " + str(s_num_mutations()) + "\n"
-print "Minimum time for execution: " + str(round(((s_num_mutations() * (SLEEP_TIME)) / 3600), 2)) + " hours."
-print "Press CTRL/C to cancel in ",
-for i in range(2):
-    print str(2 - i) + " ",
-    sys.stdout.flush()
-    time.sleep(1)
-
 block = s_get("Fuzz_test")
 block.mutate()
 num = 100
 print "data:\n"
-
-num = block.get_item_data("len")
-print num
-
 
 f = fuzzer()
 
@@ -97,7 +85,7 @@ target.procmon_options = \
         "gdb_cmd" : [],
         "proc_args" : "",
         "crash_cmd" : ["bt","info reg"],
-        "report_spacing" : 1
+        "continue_spacing" : 0.5
     }
 sess.add_target(target)
 

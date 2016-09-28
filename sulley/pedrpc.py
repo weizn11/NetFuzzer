@@ -1,10 +1,10 @@
+# -*- coding:utf-8 -*-
 import sys
 import struct
 import os
 import socket
 import cPickle
 import protocol
-import time
 
 ########################################################################################################################
 class client:
@@ -20,7 +20,7 @@ class client:
     ####################################################################################################################
     def connect (self):
         '''
-        Connect to the PED-RPC server.
+        Connect to the server.
         '''
 
         # if we have a pre-existing server socket, ensure it's closed.
@@ -40,7 +40,6 @@ class client:
         print "Connect to proc monitor success"
         #self.__server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, self.NOLINGER)
 
-
     ####################################################################################################################
     def disconnect (self):
         '''
@@ -52,11 +51,9 @@ class client:
             self._server_sock.close()
             self._server_sock = None
 
-
     ####################################################################################################################
     def _debug (self, msg):
         print "PED-RPC> %s" % msg
-
 
     ####################################################################################################################
     def ex_recv(self):
@@ -104,10 +101,11 @@ class client:
     ####################################################################################################################
     def ex_send(self, data):
         '''
-        @param data:
-        @return:
+        @param data:    发送的数据
+        @return:    无返回值，出错将抛出异常
         '''
 
+        #序列化数据包
         serData = cPickle.dumps(data, protocol=2)
         hdr = protocol.Header(nextProtoName=data.protoName, nextLength=len(serData))
         serHdr = cPickle.dumps(hdr, protocol=2)
@@ -123,13 +121,15 @@ class client:
     ####################################################################################################################
     def fetch_procmon_status(self):
         '''
-        @return: (bool,string)  True:crash  string:crash report
+        @desc:  获取进程crash报告
+        @return: (boolean, String) 若进程crash则返回True，并返回crash报告。
         '''
+
         retVal = False
         crashReport = ""
         recvReport = None
 
-        requestReport = protocol.Request_Report()
+        requestReport = protocol.Fetch_Report()
         try:
             self.ex_send(requestReport)
         except:
@@ -147,14 +147,9 @@ class client:
             #procmon crash
             crashReport += recvReport.report
             retVal = True
-            return retVal,crashReport
+            return retVal, crashReport
         else:
-            return retVal,None
-
-
-
-
-
+            return retVal, None
 
 ########################################################################################################################
 class server:
@@ -175,7 +170,6 @@ class server:
             sys.stderr.write("unable to bind to %s:%d\n" % (self._host, self._port))
             os._exit(1)
 
-
     ####################################################################################################################
     def _disconnect (self):
         '''
@@ -187,11 +181,9 @@ class server:
             self._client_sock.close()
             self._client_sock = None
 
-
     ####################################################################################################################
     def _debug (self, msg):
         print "PED-RPC> %s" % msg
-
 
     ####################################################################################################################
     def _ex_recv (self):
@@ -235,7 +227,6 @@ class server:
         objData = cPickle.loads(data)
 
         return objData
-
 
     ####################################################################################################################
     def _ex_send (self, data):

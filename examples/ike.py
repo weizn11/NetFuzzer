@@ -207,14 +207,6 @@ class fuzzer():
 def start_wait_callback():
     pass
 
-print "Total mutations: " + str(s_num_mutations()) + "\n"
-print "Minimum time for execution: " + str(round(((s_num_mutations() * (SLEEP_TIME)) / 3600), 2)) + " hours."
-print "Press CTRL/C to cancel in ",
-for i in range(2):
-    print str(2 - i) + " ",
-    sys.stdout.flush()
-    time.sleep(1)
-
 #创建一个fuzzer实例
 f1 = fuzzer()
 
