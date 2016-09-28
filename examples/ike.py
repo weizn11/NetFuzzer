@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding:utf-8 -*-
 import time
 import sys
 from sulley import *
@@ -12,7 +13,9 @@ import threading
 SLEEP_TIME = 0
 TIMEOUT = 5
 
+#设置生成测试实例个数
 set_max_mutations(999999999)
+
 s_initialize("IKEv1_SA")
 s_random("cd 02 32 6f 14 a9 5b 93",min_length=8,max_length=8)
 s_binary("00000000000000000110020000000000000001680d00013400000001"
@@ -23,7 +26,8 @@ s_binary("00000000000000000110020000000000000001680d00013400000001"
 "03000180040001800b0001000c000400007080030000240701000080010001800200028003000180040001800b0001000c00040000708000"
 "0000240801000080010001800200018003000180040001800b0001000c000400007080000000184048b7d56ebce88525e7de7f00d6c2d3c0000000")
 
-s_initialize("IKEv1_HDR")
+#定义数据结构
+s_initialize("IKEv1_HDR")   #初始化一个数据结构
 s_binary("00 00 00 00 00 00 00 00",name="init_cookie")
 s_binary("00 00 00 00 00 00 00 00",name="respo_cookie")
 s_binary("8410020000000000")
@@ -211,26 +215,32 @@ for i in range(2):
     sys.stdout.flush()
     time.sleep(1)
 
+#创建一个fuzzer实例
 f1 = fuzzer()
 
-sess1 = sessions.session(loop_sleep_time=SLEEP_TIME, sock_timeout=TIMEOUT,\
-                        proto="custom",sniff_device="eth0",sniff_switch=True,\
-                        keep_alive=False,sniff_filter="udp dst port 500 and src port 500",\
+#创建一个fuzz会话
+sess1 = sessions.session(loop_sleep_time=SLEEP_TIME, sock_timeout=TIMEOUT,
+                        proto="custom",sniff_device="eth0",sniff_switch=True,
+                        keep_alive=False,sniff_filter="udp dst port 500 and src port 500",
                          ex_send_callback=f1.ex_send_callback)
 
+#添加需要进行fuzz的数据结构
 sess1.add_block(s_get("IKEv1_SA"))
 #sess1.add_block(s_get("IKEv1_HDR"))
 sess1.add_block(s_get("FRAGMENT_HDR"))
 
+#设置回调函数
 sess1.post_send_callback = f1.post_send_callback
 sess1.packet_handler_callback = f1.packet_handler_callback
 sess1.pre_send_callback = f1.pre_send_callback
 sess1.block_mutate_callback = f1.block_mutate_callback
 sess1.start_wait_callback = start_wait_callback
 
+#设置fuzz目标
 target = sessions.target("10.0.0.36", 500)
 sess1.add_target(target)
 
+#开始fuzzing
 sess1.fuzz()
 
 

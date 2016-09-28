@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 import sulley.blocks
 import sulley.legos
 import sulley.pedrpc
@@ -542,6 +543,10 @@ def s_qword (value, endian="<", format="binary", signed=False, val_range=(None,N
     blocks.CURRENT.push(qword)
 
 def set_max_mutations(num=1000):
+    '''
+    @param num: 生成测试用例总个数
+    @return: 无返回值
+    '''
     primitives.gl_max_mutations = num
 
 

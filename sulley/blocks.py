@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 import pgraph
 import primitives
 import sex
@@ -6,8 +7,8 @@ import zlib
 import hashlib
 import struct
 
-REQUESTS = {}
-CURRENT  = None
+REQUESTS = {}       #type: request
+CURRENT  = None     #type: request
 
 ########################################################################################################################
 class request (pgraph.node):
@@ -38,7 +39,12 @@ class request (pgraph.node):
             raise Exception
         self.max_mutations = primitives.gl_max_mutations
 
-    def set_item_data(self,name,data):
+    def set_field_data(self, name, data):
+        '''
+        @param name: 字段名
+        @param data: 设置的数据
+        @return: 无返回值，失败则抛出异常。
+        '''
         try:
             item = self.names[name]
             if hasattr(item,"value"):
@@ -55,7 +61,12 @@ class request (pgraph.node):
             print "not found item '%s' in dict"%(name)
             raise Exception
 
-    def get_item_data(self,name):
+    def get_field_data(self, name):
+        '''
+        @desc:  获取定义的结构中的某个字段数据
+        @param name:  字段名，可在数据结构定义时申明。
+        @return:    字段的当前数据。
+        '''
         try:
             item = self.names[name]
             if hasattr(item,"value"):

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding:utf-8 -*-
 import time
 import sys
 from sulley import *
@@ -11,7 +12,10 @@ import gc
 SLEEP_TIME = 0
 TIMEOUT = 5
 
+#设置测试用例总数
 set_max_mutations(10000000)
+
+#定义测试数据结构
 s_initialize("Fuzz_test")
 #s_static("test")
 s_int(100,endian="<",format="binary",fuzzable=False,val_range=(1,100000),name="len")
@@ -73,7 +77,7 @@ print "data:\n"
 num = block.get_item_data("len")
 print num
 
-'''
+
 f = fuzzer()
 
 sess = sessions.session(sleep_time=SLEEP_TIME, sock_timeout=TIMEOUT,proto="tcp",sniff_switch=False,keep_alive=False,sniff_device="lo")
@@ -85,7 +89,7 @@ sess.send_failed_callback=f.send_failed_callback
 sess.packet_handler_callback=f.sniff_packet_handler
 
 target = sessions.target("127.0.0.1", 74)
-#target.procmon = pedrpc.client("127.0.0.1",7777)
+target.procmon = pedrpc.client("127.0.0.1",7777)
 target.procmon_options = \
     {
         "gdb_path" : "/usr/bin/gdb",
@@ -99,7 +103,7 @@ sess.add_target(target)
 
 sess.fuzz()
 
-'''
+
 
 
 

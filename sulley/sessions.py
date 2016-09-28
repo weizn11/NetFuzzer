@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 import os
 import re
 import sys
@@ -107,29 +108,27 @@ class custom_sock():
 class session ():
     def __init__(
                   self,
-                  loop_sleep_time=1.0,
+                  loop_sleep_time=1.0,      #每次循环fuzz的时间间隔
                   log_level=logging.INFO,
                   logfile=None,
                   logfile_level=logging.DEBUG,
-                  proto="tcp",
-                  restart_interval=0,
-                  sock_timeout=5.0,
-                  send_iface="eth0",
-                  sniff_device="eth0",
-                  sniff_stop_filter=None,
-                  sniff_timout=None,
-                  sniff_switch=False,
-                  sniff_filter="",
-                  keep_alive=False,
-                  ex_send_callback = None,
-                  send_sleep_time=0.0
+                  proto="tcp",              #使用的连接协议
+                  sock_timeout=5.0,         #socket超时时间
+                  send_iface="eth0",        #发送数据包使用的网卡
+                  sniff_device="eth0",      #进行网络监听的网卡
+                  sniff_stop_filter=None,   #设置网络监视器的stop_filter
+                  sniff_timout=None,        #网络监视器超时间隔
+                  sniff_switch=False,       #是否启动网络监视器
+                  sniff_filter="",          #设置数据包过滤
+                  keep_alive=False,         #是否保持socket连接
+                  ex_send_callback = None,  #自定义发包回调函数
+                  send_sleep_time=0.0       #
                 ):
 
         self.loop_sleep_time          = loop_sleep_time
         self.send_sleep_time          = send_sleep_time
         self.proto               = proto.lower()
         self.ssl                 = False
-        self.restart_interval    = restart_interval
         self.timeout             = sock_timeout
         self.total_num_mutations = 0
         self.total_mutant_index  = 0
@@ -154,6 +153,7 @@ class session ():
         self.sniff_stop_filter = sniff_stop_filter
         self.sniff_timeout = sniff_timout
 
+        #创建网络监视器
         if self.sniff_switch:
             try:
                 self.sniff_thread = SniffThread.Sniffer(self.device,self.sniff_filter,self.sniff_stop_filter,self.sniff_timeout)
@@ -161,8 +161,8 @@ class session ():
                 print "sniff thread create failed"
                 os._exit(0)
 
-        # Initialize logger
-        self.logger = logging.getLogger("Sulley_logger")
+        #初始化日志
+        self.logger = logging.getLogger("NetFuzzer_logger")
         self.logger.setLevel(log_level)
         formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] -> %(message)s')
 
@@ -177,6 +177,7 @@ class session ():
         consolehandler.setLevel(log_level)
         self.logger.addHandler(consolehandler)
 
+        #判断用户使用的连接协议
         if self.proto == "tcp":
             self.proto = socket.SOCK_STREAM
 
@@ -211,9 +212,10 @@ class session ():
         @param target: Target to add to session
         '''
 
+        #连接到进程监视器
         target.procmon_connect()
 
-        # add target to internal list.
+        #将fuzz目标添加到会话列表中
         self.fuzz_targets.append(target)
 
     ####################################################################################################################
@@ -242,13 +244,6 @@ class session ():
 
     def fuzz (self):
         '''
-        Call this routine to get the ball rolling. No arguments are necessary as they are both utilized internally
-        during the recursive traversal of the session graph.
-
-        @type  this_node: request (node)
-        @param this_node: (Optional, def=None) Current node that is being fuzzed.
-        @type  path:      List
-        @param path:      (Optional, def=[]) Nodes along the path to the current one being fuzzed.
         '''
 
         reconn = False
@@ -260,8 +255,10 @@ class session ():
 
         f_target = self.fuzz_targets[0]
 
+        #获取测试用例的总数
         self.total_num_mutations = primitives.gl_max_mutations
 
+        #启动网络监视器
         if self.sniff_switch:
             try:
                 self.sniff_thread.packet_handler_callback = self.packet_handler_callback
@@ -273,7 +270,8 @@ class session ():
 
             print "sniff thread start."
 
-        f_target.procmon_start()    #start proc monitor
+        #启动进程监视器
+        f_target.procmon_start()
 
         self.start_wait_callback()
 
@@ -289,14 +287,18 @@ class session ():
                 self.logger.info("fuzzing %d of %d" % (self.total_mutant_index, self.total_num_mutations))
                 newMutant = False
 
+            #从数据结构列表中取出一个进行测试
             f_block = self.fuzz_blocks[blockIndex]
 
-            if not f_block.mutate():          #generate mutant data
+            #生成测试数据
+            if not f_block.mutate():
                 self.logger.error("all possible mutations for current fuzz node exhausted")
                 if self.total_mutant_index >= self.total_num_mutations:
+                    #已用尽所有的测试用例
                     done_with_fuzz_node = True
                     continue
             else:
+                #成功获取到新的测试用例
                 try:
                     self.block_mutate_callback(f_block)
                 except:
@@ -309,14 +311,17 @@ class session ():
                 self.logger.critical(msg)
 
             while 1:
+                #判断连接协议并创建连接
                 if self.layer2:
                     sock = dnet.eth(self.iface) #create eth class
 
                 elif self.custom:
+                    #用户自定义协议类型
                     sock = custom_sock(f_target,self.ex_send_callback)
 
                 else:  #TCP or UDP
                     if not sock or not self.keep_alive:
+                        #创建socket
                         try:
                             (family, socktype, proto, canonname, sockaddr)=socket.getaddrinfo(f_target.host, f_target.port)[0]
                             sock = socket.socket(family, self.proto)
@@ -325,7 +330,7 @@ class session ():
                             sock = None
                             continue
 
-                        #connect to target host
+                        #连接到fuzz目标
                         try:
                             sock.settimeout(self.timeout)
                             # Connect is needed only for TCP stream
@@ -339,9 +344,9 @@ class session ():
                                 os._exit(0)
                             continue
 
-                # now send the current node we are fuzzing.
+                #向目标发送生成好的测试用例
                 try:
-                    (reconn,normal,againMutate) = self.transmit(sock, f_block, f_target,data)  #send fuzzing packet
+                    (reconn, normal, againMutate) = self.transmit(sock, f_block, f_target, data)  #send fuzzing packet
                     data = None
                     if reconn and sock:
                         sock.close()
@@ -363,7 +368,7 @@ class session ():
             if not againMutate:
                 blockIndex += 1
 
-            # delay in between test cases.
+            #输出日志
             if blockIndex >=len(self.fuzz_blocks):
                 self.logger.info("sleeping for %f seconds\n-------------------------------------------------" % self.loop_sleep_time)
                 time.sleep(self.loop_sleep_time)
@@ -448,7 +453,7 @@ class session ():
         reconn = False
         normal = True
 
-        # if no data was returned by the callback, render the node here.
+        #若没有传入指定的发送数据，则从block中生成发送数据。
         try:
             if not _data:
                 data = block.render()    #generate fuzzing data
@@ -461,12 +466,8 @@ class session ():
         while sendFlag:
             sendFlag = False
 
-            # if data length is > 65507 and proto is UDP, truncate it.
-            # TODO: this logic does not prevent duplicate test cases, need to address this in the future.
+            #如果UDP数据包大于65507，则进行截断。
             if self.proto == socket.SOCK_DGRAM:
-                # max UDP packet size.
-                # TODO: anyone know how to determine this value smarter?
-                # - See http://stackoverflow.com/questions/25841/maximum-buffer-length-for-sendto to fix this
                 MAX_UDP = 65507
 
                 if os.name != "nt" and os.uname()[0] == "Darwin":
@@ -476,20 +477,22 @@ class session ():
                     self.logger.debug("Too much data for UDP, truncating to %d bytes" % MAX_UDP)
                     data = data[:MAX_UDP]
 
-            #send packet
+            #发送前的回调函数，返回修改后的测试数据。
             try:
-                data = self.pre_send(sock,block.name,data)
+                data = self.pre_send(sock, block.name, data)
             except:
                 print "pre_send_callback() exception"
                 raise Exception
 
+            #开始发送测试数据包
             if self.layer2:   #layer2
                 try:
                     sock.send(data)
                 except Exception, inst:
                     self.logger.error("Socket error, send: %s" % inst)
                     try:
-                        reconn = self.send_failed_callback(target,data)
+                        #发送失败的回调函数，返回重连标识。
+                        reconn = self.send_failed_callback(target, data)
                         normal = False
                     except:
                         print "send_failed_callback() error"
@@ -501,34 +504,37 @@ class session ():
                 except:
                     self.logger.error("custom send error")
                     try:
-                        reconn = self.send_failed_callback(target,data)
+                        #发送失败的回调函数，返回重连标识。
+                        reconn = self.send_failed_callback(target, data)
                         normal = False
                     except:
                         print "send_failed_callback() error"
                         raise Exception
-            else:
+            else:   #TCP or UDP
                 try:
                     if self.proto == socket.SOCK_STREAM:
                         sock.send(data)
                     else:
                         sock.sendto(data, (target.host, target.port))
-                    #self.logger.debug("Packet sent : " + repr(data))
                 except Exception, inst:
                     self.logger.error("Socket error, send: %s" % inst)
                     try:
-                        reconn = self.send_failed_callback(target,data)
+                        #发送失败的回调函数，返回重连标识。
+                        reconn = self.send_failed_callback(target, data)
                         normal = False
                     except:
                         print "send_failed_callback() error"
                         raise Exception
 
+            #从进程监视器中获取进程信息
             if target.procmon:
                 try:
-                    crash,report = target.procmon.fetch_procmon_status()
+                    crash, report = target.procmon.fetch_procmon_status()
                 except:
                     print "fetch_procmon_status() error"
                     raise Exception
                 if crash:
+                    #测试用例造成进程crash，调用crash回调函数，传入crash报告。
                     if not self.fetch_proc_crash_callback(report):
                         print "Fuzzing complete."
                         os._exit(0)
@@ -536,13 +542,15 @@ class session ():
                     #print "crash data:",binascii.b2a_hex(data)
                     #os._exit(0)
 
+            #发送结束后的回调函数
             if normal:
                 try:
-                    (sendFlag,againMutate) = self.post_send(sock,data)
+                    #返回重发和重新对此步骤生成测试用例的标识。
+                    (sendFlag, againMutate) = self.post_send(sock, data)
                 except:
                     print "post_send() error"
                     raise Exception
 
-        return (reconn,normal,againMutate)
+        return (reconn, normal, againMutate)
 ########################################################################################################################
 

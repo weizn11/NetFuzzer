@@ -1,8 +1,10 @@
+# -*- coding:utf-8 -*-
 import random
 import struct
 import random
 
-gl_max_mutations = None
+gl_max_mutations = None     #全局生成测试用例总数
+
 ########################################################################################################################
 class base_primitive (object):
     '''
