@@ -491,7 +491,7 @@ def s_word (value, endian="<", format="binary", signed=False, val_range=(None,No
     blocks.CURRENT.push(word)
 
 
-def s_dword (value, endian="<", format="binary", signed=False, val_range=(None,None), fuzzable=True, name=None):
+def s_dword (value, endian="<", format="binary", signed=False, val_range=(None,None), fuzzable=True, wild=False, name=None):
     '''
     Push a double word onto the current block stack.
 
@@ -509,11 +509,12 @@ def s_dword (value, endian="<", format="binary", signed=False, val_range=(None,N
     @param full_range: (Optional, def=False) If enabled the field mutates through *all* possible values.
     @type  fuzzable:   Boolean
     @param fuzzable:   (Optional, def=True) Enable/disable fuzzing of this primitive
+    @param
     @type  name:       String
     @param name:       (Optional, def=None) Specifying a name gives you direct access to a primitive
     '''
 
-    dword = primitives.dword(value, endian, format, signed, val_range, fuzzable, name)
+    dword = primitives.dword(value, endian, format, signed, val_range, fuzzable, wild, name)
     blocks.CURRENT.push(dword)
 
 

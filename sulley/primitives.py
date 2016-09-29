@@ -656,7 +656,7 @@ class string (base_primitive):
 ########################################################################################################################
 class bit_field (base_primitive):
     #global gl_max_mutations
-    def __init__ (self, value, width, endian="<", format="binary", signed=False, val_range=(), fuzzable=True, name=None):
+    def __init__ (self, value, width, endian="<", format="binary", signed=False, val_range=(), fuzzable=True, wild=False, name=None):
         '''
         The bit field primitive represents a number of variable length and is used to define all other integer types.
 
@@ -693,6 +693,7 @@ class bit_field (base_primitive):
         self.signed        = signed
         self.val_range     = val_range
         self.fuzzable      = fuzzable
+        self.wild          = wild
         self.name          = name
         self.value         = value
 
@@ -724,25 +725,29 @@ class bit_field (base_primitive):
 
         assert(type(self.max_num) is int or type(self.max_num) is long)
 
-        #将预先输入的值也加入到测试用例中
-        if type(value) in [list, tuple]:
-            for val in value:
-                self.fuzz_library.append(val)
-                self.add_integer_boundaries(val)
+        if not self.wild:
+            #将预先输入的值也加入到测试用例中
+            if type(value) in [list, tuple]:
+                for val in value:
+                    self.fuzz_library.append(val)
+                    self.add_integer_boundaries(val)
+            else:
+                self.fuzz_library.append(value)
+                self.add_integer_boundaries(value)
+
+            #将边界值加入到测试中
+            self.add_integer_boundaries(0)
+            self.add_integer_boundaries(self.min_num)
+            self.add_integer_boundaries(self.max_num)
+
+            #尝试一些特殊值
+            limit = [2, 3, 4, 5, 7, 8, 16, 32, 64, 128]
+            for i in limit:
+                if self.max_num / i > 0:
+                    self.add_integer_boundaries(self.max_num / i)
         else:
-            self.fuzz_library.append(value)
-            self.add_integer_boundaries(value)
-
-        #将边界值加入到测试中
-        self.add_integer_boundaries(0)
-        self.add_integer_boundaries(self.min_num)
-        self.add_integer_boundaries(self.max_num)
-
-        #尝试一些特殊值
-        limit = [2, 3, 4, 5, 7, 8, 16, 32, 64, 128]
-        for i in limit:
-            if self.max_num / i > 0:
-                self.add_integer_boundaries(self.max_num / i)
+            #纯随机
+            self.fuzz_library = []
 
 
     def mutate(self):
@@ -752,8 +757,11 @@ class bit_field (base_primitive):
         if len(self.ex_fuzz_list) == 0:
             self.mutant_index = 0
             self.ex_fuzz_list += self.fuzz_library
-            #生成是fuzz_library长度两倍的随机数据。
-            for index in xrange(len(self.fuzz_library) * 2):
+            libLength = len(self.fuzz_library)
+            if self.wild:
+                libLength = 20
+            #生成是fuzz_library长度五倍的随机数据。
+            for index in xrange(libLength * 5):
                 #在限定范围内生成随机数值
                 tmp = random.randint(self.min_num,self.max_num)
                 if tmp not in self.ex_fuzz_list:
@@ -912,12 +920,12 @@ class word (bit_field):
 
 ########################################################################################################################
 class dword (bit_field):
-    def __init__ (self, value, endian="<", format="binary", signed=False, val_range=(), fuzzable=True, name=None):
+    def __init__ (self, value, endian="<", format="binary", signed=False, val_range=(), fuzzable=True, wild=False, name=None):
         self.s_type  = "dword"
         if type(value) not in [int, long, list, tuple]:
             value = struct.unpack(endian + "L", value)[0]
 
-        bit_field.__init__(self, value, 32, endian, format, signed, val_range, fuzzable, name)
+        bit_field.__init__(self, value, 32, endian, format, signed, val_range, fuzzable, wild, name)
 
 
 ########################################################################################################################
