@@ -9,6 +9,7 @@ import select
 import socket
 import struct
 import cPickle
+from sulley.protocol import *
 
 USAGE = "USAGE: process_monitor_unix.py"\
         "\n    [-p|--port PORT]             TCP port to bind this"\
@@ -17,31 +18,6 @@ USAGE = "USAGE: process_monitor_unix.py"\
 ERR   = lambda msg: sys.stderr.write("ERR> " + msg + "\n") or os._exit(1)
 
 servlet = None
-
-class Header:
-    def __init__(self,nextProtoName="", nextLength=0):
-        self.nextProtoName = nextProtoName
-        self.nextLength = nextLength
-
-class Debug_Options:
-    def __init__(self, procmonOptions={}):
-        self.protoName = "Debug_Options"
-        self.procmonOptions = procmonOptions
-
-class Debug_Report:
-    def __init__(self, crash=False, report=""):
-        self.protoName = "Debug_Report"
-        self.crash = crash
-        self.report = report
-
-class Debug_Cmd:
-    def __init__(self, cmd=""):
-        self.protoName = "Debug_Cmd"
-        self.cmd = cmd
-
-class Fetch_Report:
-    def __init__(self):
-        self.protoName = "Fetch_Report"
 
 class server:
     def __init__ (self, host, port):
@@ -163,8 +139,9 @@ class debugger_thread(threading.Thread):
             self.wrPipe[0],self.wrPipe[1] = os.pipe()
             self.rdPipe[0],self.rdPipe[1] = os.pipe()
             self.errPipe[0],self.errPipe[1] = os.pipe()
-        except:
-            print "Create pip failed"
+        except Exception ,e:
+            print "Create pip failed.\nTrace info:"
+            print e
             os._exit(0)
         
     def start_monitoring(self):
@@ -189,8 +166,9 @@ class debugger_thread(threading.Thread):
 
         try:
             os.write(self.wrPipe[1],cmd)
-        except:
-            print "write pipe failed"
+        except Exception, e:
+            print "write pipe failed.\nTrace info:"
+            print e
             raise Exception
 
     def run(self):
@@ -234,6 +212,7 @@ class debugger_thread(threading.Thread):
                         self.readBuff = os.read(r,1024)
                         if len(self.readBuff) == 0:
                             continue
+                        print self.readBuff
 
                         if not self.crash and self.gdbActive:
                             try:
@@ -251,8 +230,6 @@ class debugger_thread(threading.Thread):
                             #收集crash信息
                             servlet.report_crash(self.readBuff)
                             timestamp = time.time()
-
-                        print self.readBuff
 
                     except:
                         continue
@@ -320,7 +297,7 @@ class nix_process_monitor_pedrpc_server(server):
                     #print "recv proto:",self.recvData.protoName
                 except:
                     print "recv exception"
-                    break
+                    os._exit(0)
 
                 #协议处理
                 if self.recvData.protoName == "Debug_Options":

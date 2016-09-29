@@ -67,8 +67,9 @@ class client:
             while recvLength:
                 nextLength = self._server_sock.recv(recvLength)
                 recvLength -= len(nextLength)
-        except:
-            print "recv() error at step 1"
+        except Exception, e:
+            print "recv() error at step 1.\nTrace info:"
+            print e
             raise Exception
 
         recvLength = struct.unpack("<i", nextLength)[0]
@@ -78,8 +79,9 @@ class client:
                 chunk = self._server_sock.recv(recvLength)
                 data += chunk
                 recvLength -= len(data)
-        except:
-            print "recv() error at step 2"
+        except Exception, e:
+            print "recv() error at step 2.\nTrace info:"
+            print e
             raise Exception
 
         hdr = cPickle.loads(data)
@@ -90,8 +92,9 @@ class client:
                 chunk = self._server_sock.recv(recvLength)
                 data += chunk
                 recvLength -= len(data)
-        except:
-            print "recv() error at step 3"
+        except Exception, e:
+            print "recv() error at step 3.\nTrace info:"
+            print e
             raise Exception
 
         objData = cPickle.loads(data)
@@ -132,14 +135,18 @@ class client:
         requestReport = protocol.Fetch_Report()
         try:
             self.ex_send(requestReport)
-        except:
-            print "fetch_procmon_status send exception"
-            return retVal
+        except Exception, e:
+            print "fetch_procmon_status send exception.\nTrace info:"
+            print e
+            os._exit(0)
+            return retVal, None
 
         try:
             recvReport = self.ex_recv()
-        except:
-            print "fetch_procmon_status recv exception"
+        except Exception, e:
+            print "fetch_procmon_status recv exception.\nTrace info:"
+            print e
+            os._exit(0)
             return retVal, crashReport
 
         retVal = recvReport.crash
