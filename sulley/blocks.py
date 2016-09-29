@@ -6,6 +6,7 @@ from utils.crc16 import CRC16
 import zlib
 import hashlib
 import struct
+import types
 
 REQUESTS = {}       #type: request
 CURRENT  = None     #type: request
@@ -88,26 +89,36 @@ class request (pgraph.node):
             print "not found item in dict"
             raise Exception
 
-    def mutate (self):
-        mutated = False
-
+    def mutate (self, names=None):
         '''
-        if self.mutant_index >= self.max_mutations:
-            return False
+        @type: String or List
+        @param name: 指定生成测试数据的字段
+        @return: 成功返回True
         '''
 
+        if names is not None:
+            #指定了变异数据的字段
+            if type(names) is types.StringType: #传入类型是String
+                for item in self.stack:
+                    if item.name == names:
+                        item.mutate()
+                        break
+            elif type(names) is types.ListType: #传入类型是List
+                for name in names:
+                    for item in self.stack:
+                        if item.name == name:
+                            item.mutate()
+                            break
+        #未特殊指定，所有字段都变异
         for item in self.stack:
             if item.fuzzable and item.mutate():
-                mutated = True
-
                 if not isinstance(item, block):
                     self.mutant = item
-
                 #break
 
         self.mutant_index += 1
 
-        return mutated
+        return True
 
     """
     def num_mutations (self):
