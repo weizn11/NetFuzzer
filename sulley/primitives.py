@@ -3,7 +3,7 @@ import random
 import struct
 import random
 
-gl_max_mutations = None     #全局生成测试用例总数
+#gl_max_mutations = None     #全局生成测试用例总数
 
 ########################################################################################################################
 class base_primitive (object):
@@ -11,7 +11,7 @@ class base_primitive (object):
     The primitive base class implements common functionality shared across most primitives.
     '''
 
-    global gl_max_mutations
+    #global gl_max_mutations
     def __init__ (self):
         self.fuzz_complete  = False     # this flag is raised when the mutations are exhausted.
         self.fuzz_library   = []        # library of static fuzz heuristics to cycle through.
@@ -64,7 +64,7 @@ class base_primitive (object):
 
         return True
 
-
+    """
     def num_mutations (self):
         '''
         Calculate and return the total number of mutations for this individual primitive.
@@ -74,6 +74,7 @@ class base_primitive (object):
         '''
 
         return gl_max_mutations
+    """
 
 
     def render (self):
@@ -412,7 +413,7 @@ class string (base_primitive):
         self.rendered      = ""        # rendered value
         self.fuzz_complete = False     # flag if this primitive has been completely fuzzed
         self.mutant_index  = 0         # current mutation number
-        self.ex_fuzz_list = []
+        self.ex_fuzz_list = []         #最终存放生成好的测试用例的列表
 
         # add this specific primitives repitition values to the unique fuzz library.
         self.this_library = \
@@ -587,6 +588,7 @@ class string (base_primitive):
             self.value = self.original_value
             return False
 
+        #若ex_fuzz_list中的测试用例已用完，则清空此列表
         if self.mutant_index >= len(self.ex_fuzz_list):
             self.mutant_index = 0
             self.ex_fuzz_list = []
@@ -595,6 +597,7 @@ class string (base_primitive):
             self.mutant_index = 0
             self.ex_fuzz_list += self.fuzz_library
             self.ex_fuzz_list += self.this_library
+            #洗牌算法
             for index in xrange(len(self.ex_fuzz_list)):
                 swapIndex = random.randint(0, len(self.ex_fuzz_list) - 1)
                 self.ex_fuzz_list[index], self.ex_fuzz_list[swapIndex] = self.ex_fuzz_list[swapIndex], \
@@ -652,7 +655,7 @@ class string (base_primitive):
 
 ########################################################################################################################
 class bit_field (base_primitive):
-    global gl_max_mutations
+    #global gl_max_mutations
     def __init__ (self, value, width, endian="<", format="binary", signed=False, val_range=(), fuzzable=True, name=None):
         '''
         The bit field primitive represents a number of variable length and is used to define all other integer types.
@@ -697,10 +700,10 @@ class bit_field (base_primitive):
         self.fuzz_complete = False     # flag if this primitive has been completely fuzzed
         self.fuzz_library  = []        # library of fuzz heuristics
         self.cyclic_index  = 0         # when cycling through non-mutating values
-        self.ex_fuzz_list  = []
-        self.mutant_index  = 0  # current mutation number
+        self.ex_fuzz_list  = []        #最终存放预先生成测试用例的列表
+        self.mutant_index  = 0         # current mutation number
 
-
+        #定义值的生成范围
         self.min_num = val_range[0]
         self.max_num = val_range[1]
 
@@ -712,17 +715,17 @@ class bit_field (base_primitive):
             if not self.max_num:
                 self.max_num = self.to_decimal("1" * (width-1))
 
-        if signed:
+        if signed:  #有符号型
             if not self.min_num:
                 self.min_num = 0 - self.max_num
-        else:
+        else:       #无符号型
             if not self.min_num:
                 self.min_num = 0
 
         assert(type(self.max_num) is int or type(self.max_num) is long)
 
+        #将预先输入的值也加入到测试用例中
         if type(value) in [list, tuple]:
-            # Use the supplied values as the fuzz library.
             for val in value:
                 self.fuzz_library.append(val)
                 self.add_integer_boundaries(val)
@@ -730,11 +733,12 @@ class bit_field (base_primitive):
             self.fuzz_library.append(value)
             self.add_integer_boundaries(value)
 
-        # try only "smart" values.
+        #将边界值加入到测试中
         self.add_integer_boundaries(0)
         self.add_integer_boundaries(self.min_num)
         self.add_integer_boundaries(self.max_num)
 
+        #尝试一些特殊值
         limit = [2, 3, 4, 5, 7, 8, 16, 32, 64, 128]
         for i in limit:
             if self.max_num / i > 0:
@@ -748,10 +752,14 @@ class bit_field (base_primitive):
         if len(self.ex_fuzz_list) == 0:
             self.mutant_index = 0
             self.ex_fuzz_list += self.fuzz_library
-            for index in xrange(len(self.fuzz_library)):
+            #生成是fuzz_library长度两倍的随机数据。
+            for index in xrange(len(self.fuzz_library) * 2):
+                #在限定范围内生成随机数值
                 tmp = random.randint(self.min_num,self.max_num)
                 if tmp not in self.ex_fuzz_list:
                     self.ex_fuzz_list.append(tmp)
+
+            #洗牌算法
             for index in xrange(len(self.ex_fuzz_list)):
                 swapIndex = random.randint(0,len(self.ex_fuzz_list)-1)
                 self.ex_fuzz_list[index],self.ex_fuzz_list[swapIndex] = \
@@ -760,6 +768,7 @@ class bit_field (base_primitive):
         self.value = self.ex_fuzz_list[self.mutant_index]
         self.mutant_index += 1
 
+        #当ex_fuzz_list中的测试用例使用完后，清空此列表
         if self.mutant_index >= len(self.ex_fuzz_list):
             self.ex_fuzz_list = []
             self.mutant_index = 0
@@ -768,8 +777,7 @@ class bit_field (base_primitive):
 
     def add_integer_boundaries (self, integer):
         '''
-        Add the supplied integer and border cases to the integer fuzz heuristics library.
-
+        @desc: 向fuzz_library中加入预先生成的测试用例
         @type  integer: Int
         @param integer: Integer to append to fuzz heuristics
         '''

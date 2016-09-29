@@ -1,36 +1,18 @@
 # -*- coding:utf-8 -*-
 import os
-import re
 import sys
-import zlib
 import time
 import socket
-import httplib
-import cPickle
-import threading
-import BaseHTTPServer
 
 # Use libdnet for layer2 support
 import dnet
 
-# Threads
-import thread
-import threading
-
-import httplib
 import logging
-
-import blocks
-import pedrpc
-import pgraph
 import sex
 import primitives
-import pcapy
 import SniffThread
-import binascii
-import gc
 import protocol
-
+import signal
 
 ########################################################################################################################
 class target:
@@ -114,10 +96,7 @@ class custom_sock():
 class session ():
     def __init__(
                   self,
-                  loop_sleep_time=1.0,      #每次循环fuzz的时间间隔
-                  log_level=logging.INFO,
-                  logfile=None,
-                  logfile_level=logging.DEBUG,
+                  loop_sleep_time=0.0,      #每次循环fuzz的时间间隔
                   proto="tcp",              #使用的连接协议
                   sock_timeout=5.0,         #socket超时时间
                   send_iface="eth0",        #发送数据包使用的网卡
@@ -129,6 +108,10 @@ class session ():
                   keep_alive=False,         #是否保持socket连接
                   send_sleep_time=0.0       #发送每个测试用例的时间间隔
                 ):
+
+        log_level=logging.INFO
+        logfile=None
+        logfile_level=logging.DEBUG
 
         self.loop_sleep_time          = loop_sleep_time
         self.send_sleep_time          = send_sleep_time
@@ -161,8 +144,9 @@ class session ():
         if self.sniff_switch:
             try:
                 self.sniff_thread = SniffThread.Sniffer(self.device,self.sniff_filter,self.sniff_stop_filter,self.sniff_timeout)
-            except:
-                print "sniff thread create failed"
+            except Exception, e:
+                print "sniff thread create failed.\nTrace info:"
+                print e
                 os._exit(0)
 
         #初始化日志
@@ -228,7 +212,7 @@ class session ():
         @param sock:    连接目标的socket
         @type session.target()
         @param target:  Fuzz目标
-        @return: (boolean, String) 1.True:重新连接 2.退出程序
+        @return: (boolean) 1.True:重新连接 2.退出程序
         '''
         return False
 
@@ -275,6 +259,10 @@ class session ():
         '''
         pass
 
+    def sigint_handler(sig, frame):
+        print "recv sigint"
+        os._exit(0)
+
     def fuzz (self):
         '''
         '''
@@ -288,8 +276,7 @@ class session ():
 
         f_target = self.fuzz_targets[0]
 
-        #获取测试用例的总数
-        self.total_num_mutations = primitives.gl_max_mutations
+        signal.signal(signal.SIGINT, self.sigint_handler)
 
         #启动网络监视器
         if self.sniff_switch:
@@ -297,8 +284,9 @@ class session ():
                 self.sniff_thread.packet_handler_callback = self.packet_handler_callback
                 self.sniff_thread.start()
                 time.sleep(0.1)
-            except:
-                print "sniff thread start error"
+            except Exception, e:
+                print "sniff thread start error.\nTrace info:"
+                print e
                 #os._exit(0)
 
             print "sniff thread start."
@@ -313,6 +301,7 @@ class session ():
             print str(3 - i) + " ",
             sys.stdout.flush()
             time.sleep(1)
+        print "\nFuzzing...\n"
 
         done_with_fuzz_node = False
 
@@ -323,7 +312,7 @@ class session ():
 
             if newMutant:
                 self.total_mutant_index += 1
-                self.logger.info("fuzzing %d of %d" % (self.total_mutant_index, self.total_num_mutations))
+                self.logger.info("fuzzing %d" % (self.total_mutant_index))
                 newMutant = False
 
             #从数据结构列表中取出一个进行测试
@@ -340,8 +329,9 @@ class session ():
                 #成功获取到新的测试用例
                 try:
                     self.block_mutate_callback(f_block)
-                except:
-                    print "block_mutate_callback() Exception"
+                except Exception, e:
+                    print "block_mutate_callback() Exception.\nTrace info:"
+                    print e
                     raise Exception
 
             def error_handler (e, msg, sock=None):
@@ -378,9 +368,13 @@ class session ():
                         except Exception, e:
                             error_handler(e, "failed connecting on socket", sock)
                             sock = None
-                            reconn = self.connect_failed_callback(sock, f_target)
-                            if not reconn:
-                                os._exit(0)
+                            try:
+                                reconn = self.connect_failed_callback(sock, f_target)
+                                if not reconn:
+                                    os._exit(0)
+                            except Exception, e:
+                                print "connect_failed_callback() exception.\nTrace info:"
+                                print e
                             continue
 
                 #向目标发送生成好的测试用例
@@ -493,8 +487,9 @@ class session ():
                 data = block.render()    #generate fuzzing data
             else:
                 data = _data
-        except:
-            print "generate fuzzing data error"
+        except Exception, e:
+            print "generate fuzzing data error.\nTrace info:"
+            print e
             return
 
         while sendFlag:
@@ -514,8 +509,9 @@ class session ():
             #发送前的回调函数，返回修改后的测试数据。
             try:
                 data = self.pre_send(sock, block.name, data)
-            except:
-                print "pre_send_callback() exception"
+            except Exception, e:
+                print "pre_send_callback() exception.\nTrace info:"
+                print e
                 raise Exception
 
             #开始发送测试数据包
@@ -528,21 +524,24 @@ class session ():
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
                         normal = False
-                    except:
-                        print "send_failed_callback() error"
+                    except Exception, e:
+                        print "send_failed_callback() error.\nTrace info:"
+                        print e
                         raise Exception
 
             elif self.custom:   #自定义发送函数
                 try:
                     sock.send(data)
-                except:
-                    self.logger.error("custom send error")
+                except Exception, e:
+                    self.logger.error("custom send exception.\nTrace info:")
+                    print e
                     try:
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
                         normal = False
-                    except:
-                        print "send_failed_callback() error"
+                    except Exception, e:
+                        print "send_failed_callback() error.\nTrace info:"
+                        print e
                         raise Exception
             else:   #TCP or UDP
                 try:
@@ -556,22 +555,29 @@ class session ():
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
                         normal = False
-                    except:
-                        print "send_failed_callback() error"
+                    except Exception, e:
+                        print "send_failed_callback() error.\nTrace info:"
+                        print e
                         raise Exception
 
             #从进程监视器中获取进程信息
             if target.procmon:
                 try:
                     crash, report = target.procmon.fetch_procmon_status()
-                except:
-                    print "fetch_procmon_status() error"
+                except Exception, e:
+                    print "fetch_procmon_status() error.\nTrace info:"
+                    print e
+                    os._exit(0)
                     raise Exception
                 if crash:
                     #测试用例造成进程crash，调用crash回调函数，传入crash报告。
-                    if not self.fetch_proc_crash_callback(report):
-                        print "Fuzzing complete."
-                        os._exit(0)
+                    try:
+                        if not self.fetch_proc_crash_callback(report):
+                            print "Fuzzing complete."
+                            os._exit(0)
+                    except Exception, e:
+                        print "fetch_proc_crash_callback() exception.\nTrace info:"
+                        print e
                     #print report
                     #print "crash data:",binascii.b2a_hex(data)
                     #os._exit(0)
@@ -581,8 +587,9 @@ class session ():
                 try:
                     #返回重发和重新对此步骤生成测试用例的标识。
                     (sendFlag, againMutate) = self.post_send(sock, data)
-                except:
-                    print "post_send() error"
+                except Exception, e:
+                    print "post_send() error.\nTrace info:"
+                    print e
                     raise Exception
 
         return (reconn, normal, againMutate)

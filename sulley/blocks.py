@@ -24,7 +24,7 @@ class request (pgraph.node):
         self.name          = name
 
         self.label         = name    # node label for graph rendering.
-        self.stack         = []      # the request stack.
+        self.stack         = []      # @type:primitives.class @desc: 存放构成测试用例的每一个字段
         self.block_stack   = []      # list of open blocks, -1 is last open block.
         self.closed_blocks = {}      # dictionary of closed blocks.
         self.callbacks     = {}      # dictionary of list of sizers / checksums that were unable to complete rendering.
@@ -32,12 +32,14 @@ class request (pgraph.node):
         self.rendered      = ""      # rendered block structure.
         self.mutant_index  = 0       # current mutation index.
         self.mutant        = None    # current primitive being mutated.
-        self.max_mutations = 0
+        #self.max_mutations = 0      #取消了最大测试实例生成数量
 
+        '''
         if not primitives.gl_max_mutations:
             print "max_mutations not set"
             raise Exception
         self.max_mutations = primitives.gl_max_mutations
+        '''
 
     def get_name(self):
         '''
@@ -47,7 +49,7 @@ class request (pgraph.node):
         '''
         return self.name
 
-    def set_field_data(self, name, data):
+    def set_field_value(self, name, value):
         '''
         @param name: 字段名
         @param data: 设置的数据
@@ -57,7 +59,7 @@ class request (pgraph.node):
             item = self.names[name]
             if hasattr(item,"value"):
                 try:
-                    item.value = data
+                    item.value = value
                 except:
                     print "update data exception"
                     raise Exception
@@ -69,7 +71,7 @@ class request (pgraph.node):
             print "not found item '%s' in dict"%(name)
             raise Exception
 
-    def get_field_data(self, name):
+    def get_field_value(self, name):
         '''
         @desc:  获取定义的结构中的某个字段数据
         @param name:  字段名，可在数据结构定义时申明。
@@ -89,8 +91,10 @@ class request (pgraph.node):
     def mutate (self):
         mutated = False
 
+        '''
         if self.mutant_index >= self.max_mutations:
             return False
+        '''
 
         for item in self.stack:
             if item.fuzzable and item.mutate():
@@ -105,7 +109,7 @@ class request (pgraph.node):
 
         return mutated
 
-
+    """
     def num_mutations (self):
         '''
         Determine the number of repetitions we will be making.
@@ -124,6 +128,7 @@ class request (pgraph.node):
         return num_mutations
         '''
         return self.max_mutations
+        """
 
 
     def pop (self):
@@ -164,6 +169,11 @@ class request (pgraph.node):
 
 
     def render (self):
+        '''
+        @desc: 获取测试数据的字符流
+        @type: String
+        @return: 返回测试用例
+        '''
         # ensure there are no open blocks lingering.
         if self.block_stack:
             raise sex.SullyRuntimeError("UNCLOSED BLOCK: %s" % self.block_stack[-1].name)

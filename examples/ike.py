@@ -74,8 +74,8 @@ class fuzzer():
 
         self.sendData = None
 
-    def block_mutate_callback(self,block):
-        if block.name == "FRAGMENT_HDR":
+    def block_mutate_callback(self, block):
+        if block.get_name == "FRAGMENT_HDR":
             if not self.payload:
                 try:
                     self.payload = payload_ikev1_ex.format(init_cookie=binascii.b2a_hex(self.init_cookie),
@@ -87,10 +87,10 @@ class fuzzer():
                     print "generate payload exception"
                     raise Exception
 
-            block.set_item_data("ID",self.fuzz_count)
-            block.set_item_data("Number",self.frag_num)
+            block.set_field_data("ID",self.fuzz_count)
+            block.set_field_data("Number",self.frag_num)
             self.frag_num += 1
-            frag_length = block.get_item_data("length")
+            frag_length = block.get_field_data("length")
 
             print "frag_id:", self.fuzz_count, "\tfrag_length:", frag_length
 
@@ -101,8 +101,8 @@ class fuzzer():
                                                           length=("%08x" % (len(self.payload) + 36)))
                     self.ikev1_hdr = binascii.a2b_hex(self.ikev1_hdr)
 
-                    block.set_item_data("Flags",1)
-                    block.set_item_data("length",232)
+                    block.set_field_data("Flags",1)
+                    block.set_field_data("length",232)
                     self.frag_hdr = block.render()
 
                     self.sendData = self.ikev1_hdr + self.frag_hdr + self.payload
@@ -115,7 +115,7 @@ class fuzzer():
                                                           length=("%08x" % (36)))
                     self.ikev1_hdr = binascii.a2b_hex(self.ikev1_hdr)
 
-                    block.set_item_data("Flags", 0)
+                    block.set_field_data("Flags", 0)
                     self.frag_hdr = block.render()
 
                     self.sendData = self.ikev1_hdr + self.frag_hdr
@@ -128,7 +128,7 @@ class fuzzer():
                                                           length=("%08x" % (len(self.silcePayload) + 36)))
                     self.ikev1_hdr = binascii.a2b_hex(self.ikev1_hdr)
 
-                    block.set_item_data("Flags",0)
+                    block.set_field_data("Flags",0)
                     self.frag_hdr = block.render()
 
                     self.sendData = self.ikev1_hdr + self.frag_hdr + self.silcePayload
@@ -168,7 +168,7 @@ class fuzzer():
 
     def packet_handler_callback(self,pkt):
         try:
-            if pkt[IP].src == "10.0.0.36":
+            if pkt[IP].src == "10.0.0.34":
                 if pkt[ISAKMP]:
                     if self.init_cookie <> pkt[ISAKMP].init_cookie:
                         return
@@ -186,12 +186,12 @@ class fuzzer():
         except:
             print "parse error"
 
-    def ex_send_callback(self,target,data):
+    def ex_send_callback(self, target, data):
         self.target = target
-        packet = IP(dst=target.host)/UDP(sport=500,dport=500)/data
-        send(packet,verbose=False)
+        packet = IP(dst=target.host)/UDP(sport=500, dport=500)/data
+        send(packet, verbose=False)
 
-    def pre_send_callback(self,sock,blockName,data):
+    def pre_send_callback(self, sock, blockName, data):
         self.blockName = blockName
         if blockName == "IKEv1_SA":
             self.init_cookie = data[:8]
@@ -229,7 +229,7 @@ sess1.start_wait_callback = start_wait_callback
 sess1.ex_send_callback = f1.ex_send_callback
 
 #设置fuzz目标
-target = sessions.target("10.0.0.36", 500)
+target = sessions.target("10.0.0.34", 500)
 sess1.add_target(target)
 
 #开始fuzzing

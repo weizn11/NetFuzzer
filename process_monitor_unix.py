@@ -181,7 +181,7 @@ class debugger_thread(threading.Thread):
         os.dup2(self.wrPipe[0],sys.stdin.fileno())
         os.dup2(self.errPipe[1],sys.stderr.fileno())
 
-        os.execv(self.procmon_options["gdb_path"],[])
+        os.execl(self.procmon_options["gdb_path"],self.procmon_options["gdb_path"])
 
     def write_to_gdb(self,cmd=""):
         if len(cmd) > 0 and cmd[len(cmd)-1]!='\n':

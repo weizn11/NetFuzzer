@@ -18,10 +18,11 @@ class Sniffer(threading.Thread):
     def run(self):
         while self.active:
             try:
-                recv_packet = sniff(iface=self.iface,filter=self.filter,store=0,\
+                recv_packet = sniff(iface=self.iface,filter=self.filter,store=0,
                                     prn=self.packet_handler_callback,stop_filter=self.sniff_stop_filter,timeout=self.timeout)
-            except:
-                print "sniffer start error"
+            except Exception, e:
+                print "sniffer start error.\nTrace info:"
+                print e
                 os._exit(0)
 
         self.stopFlag = True
