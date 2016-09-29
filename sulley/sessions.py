@@ -104,6 +104,7 @@ class custom_sock():
             raise Exception
 
     def send(self,data):
+        #自定义发送函数
         self.ex_send_callback(self.target, data)
 
     def close(self):
@@ -126,7 +127,6 @@ class session ():
                   sniff_switch=False,       #是否启动网络监视器
                   sniff_filter="",          #设置数据包过滤
                   keep_alive=False,         #是否保持socket连接
-                  ex_send_callback = None,  #自定义发包回调函数
                   send_sleep_time=0.0       #发送每个测试用例的时间间隔
                 ):
 
@@ -148,7 +148,6 @@ class session ():
         self.layer2              = False
         self.custom              = False
         self.iface               = send_iface
-        self.ex_send_callback    = ex_send_callback
 
         self.message             = ''
         self.device              = sniff_device
@@ -238,7 +237,7 @@ class session ():
         @type: sessions.target()
         @param target: Fuzz目标
         @type: String
-        @param data: 发送的数据包
+        @param data: 生成好的测试用例
         @return: True:重新进行连接  False:退出程序
         '''
 
@@ -264,6 +263,17 @@ class session ():
         @return: (boolean)  1.True:继续进行接下来的流程 False:退出程序
         '''
         return False
+
+    def ex_send_callback(self, target, data):
+        '''
+        @desc: 自定义数据包发送回调函数
+        @type: sessions.target()
+        @param target: Fuzz目标
+        @type: String
+        @param data: 生成好的测试用例
+        @return: 无返回值
+        '''
+        pass
 
     def fuzz (self):
         '''
@@ -346,7 +356,7 @@ class session ():
 
                 elif self.custom:
                     #用户自定义协议类型
-                    sock = custom_sock(f_target,self.ex_send_callback)
+                    sock = custom_sock(f_target, self.ex_send_callback)
 
                 else:  #TCP or UDP
                     if not sock or not self.keep_alive:
@@ -412,7 +422,7 @@ class session ():
         @type:  Socket
         @param sock: 连接到Fuzz目标的Socket
         @type:  String
-        @param data: 发送的数据包
+        @param data: 生成好的测试用例
         @return: (boolean, boolean) 1.True: 重新发送此数据包 False:不用重新发送  2.True: 用新的测试用例再次测试此步骤 False:不用再做此步骤测试
         '''
         return (False, False)
@@ -422,7 +432,7 @@ class session ():
         @type:  Socket
         @param sock: 连接到Fuzz目标的Socket
         @type:  String
-        @param data: 发送的数据包
+        @param data: 生成好的测试用例
         @return: (boolean, boolean) 1.True: 重新发送此数据包 False:不用重新发送  2.True: 用新的测试用例再次测试此步骤 False:不用再做此步骤测试
         '''
 
@@ -447,7 +457,7 @@ class session ():
         @type: String
         @param blockName: 当前Fuzz的数据结构名
         @type: String
-        @param _data: 将要发送的数据包
+        @param _data: 生成好的测试用例
         @type: String
         @return: 返回修改后的发送数据包
         '''
@@ -461,12 +471,12 @@ class session ():
         @type: String
         @param blockName: 当前Fuzz的数据结构名
         @type: String
-        @param _data: 将要发送的数据包
+        @param _data: 生成好的测试用例
         @type: String
         @return: 返回修改后的发送数据包
         '''
 
-        data = self.pre_send_callback(sock,blockName,_data)
+        data = self.pre_send_callback(sock, blockName, _data)
 
         return data
 
@@ -522,7 +532,7 @@ class session ():
                         print "send_failed_callback() error"
                         raise Exception
 
-            elif self.custom:
+            elif self.custom:   #自定义发送函数
                 try:
                     sock.send(data)
                 except:

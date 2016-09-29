@@ -152,7 +152,7 @@ class debugger_thread(threading.Thread):
         self.pid = None
         self.readBuff = ""
         self.gdbActive = False
-        self.c_str = "(gdb)"
+        self.c_str = "(gdb)"    #出现此字符串则表明进程crash
         self.crash = False
 
         self.wrPipe = [0,0]
@@ -175,6 +175,8 @@ class debugger_thread(threading.Thread):
         os.close(self.rdPipe[0])
         os.close(self.wrPipe[1])
         os.close(self.errPipe[0])
+
+        #绑定管道
         os.dup2(self.rdPipe[1],sys.stdout.fileno())
         os.dup2(self.wrPipe[0],sys.stdin.fileno())
         os.dup2(self.errPipe[1],sys.stderr.fileno())
@@ -350,7 +352,7 @@ class nix_process_monitor_pedrpc_server(server):
                             os._exit(0)
                         self.thread_start = True
 
-                #Fuzzer询问是否crash
+                #Fuzzer询问进程是否crash
                 elif self.recvData.protoName == "Fetch_Report":
                     #等待进程反应时间。
                     time.sleep(self.procmon_options["continue_spacing"])

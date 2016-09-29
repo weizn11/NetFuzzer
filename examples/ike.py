@@ -213,8 +213,7 @@ f1 = fuzzer()
 #创建一个fuzz会话
 sess1 = sessions.session(loop_sleep_time=SLEEP_TIME, sock_timeout=TIMEOUT,
                         proto="custom",sniff_device="eth0",sniff_switch=True,
-                        keep_alive=False,sniff_filter="udp dst port 500 and src port 500",
-                         ex_send_callback=f1.ex_send_callback)
+                        keep_alive=False,sniff_filter="udp dst port 500 and src port 500")
 
 #添加需要进行fuzz的数据结构
 sess1.add_block(s_get("IKEv1_SA"))
@@ -227,6 +226,7 @@ sess1.packet_handler_callback = f1.packet_handler_callback
 sess1.pre_send_callback = f1.pre_send_callback
 sess1.block_mutate_callback = f1.block_mutate_callback
 sess1.start_wait_callback = start_wait_callback
+sess1.ex_send_callback = f1.ex_send_callback
 
 #设置fuzz目标
 target = sessions.target("10.0.0.36", 500)

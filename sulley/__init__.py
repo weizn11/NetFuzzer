@@ -544,6 +544,7 @@ def s_qword (value, endian="<", format="binary", signed=False, val_range=(None,N
 
 def set_max_mutations(num=1000):
     '''
+    @desc: 设置全局测试用例生成总数
     @param num: 生成测试用例总个数
     @return: 无返回值
     '''
