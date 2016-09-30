@@ -236,8 +236,7 @@ class session ():
         pass
 
     def start_wait_callback(self):
-        print "wait for proc monitor start..."
-        time.sleep(3)
+        pass
 
     def fetch_proc_crash_callback(self, report):
         '''
@@ -288,7 +287,6 @@ class session ():
                 print "sniff thread start error.\nTrace info:"
                 print e
                 #os._exit(0)
-
             print "sniff thread start."
 
         #启动进程监视器
