@@ -33,14 +33,6 @@ class request (pgraph.node):
         self.rendered      = ""      # rendered block structure.
         self.mutant_index  = 0       # current mutation index.
         self.mutant        = None    # current primitive being mutated.
-        #self.max_mutations = 0      #取消了最大测试实例生成数量
-
-        '''
-        if not primitives.gl_max_mutations:
-            print "max_mutations not set"
-            raise Exception
-        self.max_mutations = primitives.gl_max_mutations
-        '''
 
     def get_name(self):
         '''
@@ -119,28 +111,6 @@ class request (pgraph.node):
         self.mutant_index += 1
 
         return True
-
-    """
-    def num_mutations (self):
-        '''
-        Determine the number of repetitions we will be making.
-
-        @rtype:  Integer
-        @return: Number of mutated forms this primitive can take.
-        '''
-        '''
-        num_mutations = 0
-
-        for item in self.stack:
-            if item.fuzzable:
-                if item.num_mutations() > num_mutations:
-                    num_mutations = item.num_mutations()
-
-        return num_mutations
-        '''
-        return self.max_mutations
-        """
-
 
     def pop (self):
         '''
