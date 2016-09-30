@@ -71,18 +71,6 @@ def s_mutate ():
 
     return blocks.CURRENT.mutate()
 
-
-def s_num_mutations ():
-    '''
-    Determine the number of repetitions we will be making.
-
-    @rtype:  Integer
-    @return: Number of mutated forms this primitive can take.
-    '''
-
-    return blocks.CURRENT.num_mutations()
-
-
 def s_render ():
     '''
     Render out and return the entire contents of the current request.
