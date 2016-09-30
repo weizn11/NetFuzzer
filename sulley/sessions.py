@@ -444,12 +444,12 @@ class session ():
         '''
         pass
 
-    def pre_send_callback(self, sock, blockName, data):
+    def pre_send_callback(self, sock, block, data):
         '''
         @type: Socket
         @param sock: 连接到Fuzz目标的Socket
-        @type: String
-        @param blockName: 当前Fuzz的数据结构名
+        @type: blocks.request()
+        @param block: 当前Fuzz的数据结构
         @type: String
         @param _data: 生成好的测试用例
         @type: String
@@ -458,19 +458,19 @@ class session ():
 
         return data
 
-    def pre_send (self, sock, blockName, _data):
+    def pre_send (self, sock, block, _data):
         '''
         @type: Socket
         @param sock: 连接到Fuzz目标的Socket
-        @type: String
-        @param blockName: 当前Fuzz的数据结构名
+        @type: blocks.request()
+        @param block: 当前Fuzz的数据结构
         @type: String
         @param _data: 生成好的测试用例
         @type: String
         @return: 返回修改后的发送数据包
         '''
 
-        data = self.pre_send_callback(sock, blockName, _data)
+        data = self.pre_send_callback(sock, block, _data)
 
         return data
 
@@ -508,7 +508,7 @@ class session ():
 
             #发送前的回调函数，返回修改后的测试数据。
             try:
-                data = self.pre_send(sock, block.name, data)
+                data = self.pre_send(sock, block, data)
             except Exception, e:
                 print "pre_send_callback() exception.\nTrace info:"
                 print e
