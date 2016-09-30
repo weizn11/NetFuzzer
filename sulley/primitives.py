@@ -11,7 +11,6 @@ class base_primitive (object):
     The primitive base class implements common functionality shared across most primitives.
     '''
 
-    #global gl_max_mutations
     def __init__ (self):
         self.fuzz_complete  = False     # this flag is raised when the mutations are exhausted.
         self.fuzz_library   = []        # library of static fuzz heuristics to cycle through.
@@ -20,24 +19,6 @@ class base_primitive (object):
         self.original_value = None      # original value of primitive.
         self.rendered       = ""        # rendered value of primitive.
         self.value          = None      # current value of primitive.
-
-
-    def exhaust (self):
-        '''
-        Exhaust the possible mutations for this primitive.
-
-        @rtype:  Integer
-        @return: The number of mutations to reach exhaustion
-        '''
-
-        num = self.num_mutations() - self.mutant_index
-
-        self.fuzz_complete  = True
-        self.mutant_index   = self.num_mutations()
-        self.value          = self.original_value
-
-        return num
-
 
     def mutate (self):
         '''
@@ -247,7 +228,7 @@ class group (base_primitive):
 
 ########################################################################################################################
 class random_data (base_primitive):
-    def __init__ (self, value, min_length, max_length, max_mutations, fuzzable=True, step=None, name=None):
+    def __init__ (self, value, min_length, max_length, fuzzable=True, step=None, name=None):
         '''
         Generate a random chunk of data while maintaining a copy of the original. A random length range can be specified.
         For a static length, set min/max length to be the same.
@@ -258,8 +239,6 @@ class random_data (base_primitive):
         @param min_length:    Minimum length of random block
         @type  max_length:    Integer
         @param max_length:    Maximum length of random block
-        @type  max_mutations: Integer
-        @param max_mutations: (Optional, def=25) Number of mutations to make before reverting to default
         @type  fuzzable:      Boolean
         @param fuzzable:      (Optional, def=True) Enable/disable fuzzing of this primitive
         @type  step:          Integer
@@ -271,14 +250,12 @@ class random_data (base_primitive):
         self.value         = self.original_value = str(value)
         self.min_length    = min_length
         self.max_length    = max_length
-        self.max_mutations = max_mutations
         self.fuzzable      = fuzzable
         self.step          = step
         self.name          = name
 
         self.s_type        = "random_data"  # for ease of object identification
         self.rendered      = ""             # rendered value
-        self.fuzz_complete = False          # flag if this primitive has been completely fuzzed
         self.mutant_index  = 0              # current mutation number
 
         if self.step:
@@ -293,21 +270,23 @@ class random_data (base_primitive):
         @return: True on success, False otherwise.
         '''
 
-        # if we've ran out of mutations, raise the completion flag.
-        if self.mutant_index == self.num_mutations():
-            self.fuzz_complete = True
-
         # if fuzzing was disabled or complete, and mutate() is called, ensure the original value is restored.
-        if not self.fuzzable or self.fuzz_complete:
+        if not self.fuzzable:
             self.value = self.original_value
             return False
 
-        # select a random length for this string.
-        if not self.step:
-            length = random.randint(self.min_length, self.max_length)
-        # select a length function of the mutant index and the step.
-        else:
-            length = self.min_length + self.mutant_index * self.step
+        length = None
+        while True:
+            # 随机生成一个长度
+            if not self.step:
+                length = random.randint(self.min_length, self.max_length)
+            else:
+                #通过设置的步长值不断增大长度
+                length = self.min_length + self.mutant_index * self.step
+            if length > self.max_length:
+                self.mutant_index = 0
+                continue
+            break
 
         # reset the value and generate a random string of the determined length.
         self.value = ""
@@ -318,17 +297,6 @@ class random_data (base_primitive):
         self.mutant_index += 1
 
         return True
-
-
-    def num_mutations (self):
-        '''
-        Calculate and return the total number of mutations for this individual primitive.
-
-        @rtype:  Integer
-        @return: Number of mutated forms this primitive can take
-        '''
-
-        return self.max_mutations
 
 
 ########################################################################################################################
@@ -655,7 +623,6 @@ class string (base_primitive):
 
 ########################################################################################################################
 class bit_field (base_primitive):
-    #global gl_max_mutations
     def __init__ (self, value, width, endian="<", format="binary", signed=False, val_range=(), fuzzable=True, wild=False, name=None):
         '''
         The bit field primitive represents a number of variable length and is used to define all other integer types.
@@ -698,7 +665,6 @@ class bit_field (base_primitive):
         self.value         = value
 
         self.rendered      = ""        # rendered value
-        self.fuzz_complete = False     # flag if this primitive has been completely fuzzed
         self.fuzz_library  = []        # library of fuzz heuristics
         self.cyclic_index  = 0         # when cycling through non-mutating values
         self.ex_fuzz_list  = []        #最终存放预先生成测试用例的列表
@@ -910,12 +876,12 @@ class byte (bit_field):
 
 ########################################################################################################################
 class word (bit_field):
-    def __init__ (self, value, endian="<", format="binary", signed=False, val_range=(), fuzzable=True, name=None):
+    def __init__ (self, value, endian="<", format="binary", signed=False, val_range=(), fuzzable=True, wild=False, name=None):
         self.s_type  = "word"
         if type(value) not in [int, long, list, tuple]:
             value = struct.unpack(endian + "H", value)[0]
 
-        bit_field.__init__(self, value, 16, endian, format, signed, val_range, fuzzable, name)
+        bit_field.__init__(self, value, 16, endian, format, signed, val_range, fuzzable, wild, name)
 
 
 ########################################################################################################################
@@ -930,9 +896,9 @@ class dword (bit_field):
 
 ########################################################################################################################
 class qword (bit_field):
-    def __init__ (self, value, endian="<", format="binary", signed=False, val_range=(), fuzzable=True, name=None):
+    def __init__ (self, value, endian="<", format="binary", signed=False, val_range=(), fuzzable=True, wild=False, name=None):
         self.s_type  = "qword"
         if type(value) not in [int, long, list, tuple]:
             value = struct.unpack(endian + "Q", value)[0]
 
-        bit_field.__init__(self, value, 64, endian, format, signed, val_range, fuzzable, name)
+        bit_field.__init__(self, value, 64, endian, format, signed, val_range, fuzzable, wild, name)

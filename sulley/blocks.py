@@ -297,16 +297,11 @@ class block:
         self.rendered      = ""     # rendered block contents.
         self.fuzzable      = True   # blocks are always fuzzable because they may contain fuzzable items.
         self.group_idx     = 0      # if this block is tied to a group, the index within that group.
-        self.fuzz_complete = False  # whether or not we are done fuzzing this block.
         self.mutant_index  = 0      # current mutation index.
 
 
     def mutate (self):
         mutated = False
-
-        # are we done with this block?
-        if self.fuzz_complete:
-            return False
 
         #
         # mutate every item on the stack for every possible group value.
@@ -385,11 +380,6 @@ class block:
             else:
                 self.request.names[self.dep].value = self.dep_value
 
-
-        # we are done mutating this block.
-        if not mutated:
-            self.fuzz_complete = True
-
             # if we had a dependancy, make sure we restore the original value.
             if self.dep:
                 self.request.names[self.dep].value = self.request.names[self.dep].original_value
@@ -399,28 +389,6 @@ class block:
                 self.request.mutant = item
 
         return mutated
-
-
-    def num_mutations (self):
-        '''
-        Determine the number of repetitions we will be making.
-
-        @rtype:  Integer
-        @return: Number of mutated forms this primitive can take.
-        '''
-
-        num_mutations = 0
-
-        for item in self.stack:
-            if item.fuzzable:
-                num_mutations += item.num_mutations()
-
-        # if this block is associated with a group, then multiply out the number of possible mutations.
-        if self.group:
-            num_mutations *= len(self.request.names[self.group].values)
-
-        return num_mutations
-
 
     def push (self, item):
         '''
@@ -822,31 +790,13 @@ class size:
         else:
             self.bit_field      = primitives.bit_field(0, self.length*8, endian=self.endian, format=self.format, signed=self.signed)
         self.rendered       = ""
-        self.fuzz_complete  = self.bit_field.fuzz_complete
+
         self.fuzz_library   = self.bit_field.fuzz_library
         self.mutant_index   = self.bit_field.mutant_index
         self.value          = self.bit_field.value
 
         if self.math == None:
             self.math = lambda (x): x
-
-
-    def exhaust (self):
-        '''
-        Exhaust the possible mutations for this primitive.
-
-        @rtype:  Integer
-        @return: The number of mutations to reach exhaustion
-        '''
-
-        num = self.num_mutations() - self.mutant_index
-
-        self.fuzz_complete          = True
-        self.mutant_index           = self.num_mutations()
-        self.bit_field.mutant_index = self.num_mutations()
-        self.value                  = self.original_value
-
-        return num
 
 
     def mutate (self):
@@ -857,24 +807,10 @@ class size:
         @return: True on success, False otherwise.
         '''
 
-        if self.mutant_index == self.num_mutations():
-            self.fuzz_complete = True
 
         self.mutant_index += 1
 
         return self.bit_field.mutate()
-
-
-    def num_mutations (self):
-        '''
-        Wrap the num_mutations routine of the internal bit_field primitive.
-
-        @rtype:  Integer
-        @return: Number of mutated forms this primitive can take.
-        '''
-
-        return self.bit_field.num_mutations()
-
 
     def render (self):
         '''
@@ -894,12 +830,12 @@ class size:
 
             block                = self.request.closed_blocks[self.block_name]
             if self.length_in_bits:
-            	# we have to write the length in bytes, make shure you fill your sizer to a byte border
+                # we have to write the length in bytes, make shure you fill your sizer to a byte border
             	if (len(block.rendered) * 8 + self_size) % 8:
-            		raise sex.error("BLOCK " + self.name + " DIDNT FILL UP TO BYTE BORDER\n")
-            	self.bit_field.value = self.math((len(block.rendered) * 8 + self_size) / 8)
+                    raise sex.error("BLOCK " + self.name + " DIDNT FILL UP TO BYTE BORDER\n")
+                self.bit_field.value = self.math((len(block.rendered) * 8 + self_size) / 8)
             else:
-            	self.bit_field.value = self.math(len(block.rendered) + self_size)
+                self.bit_field.value = self.math(len(block.rendered) + self_size)
             self.rendered        = self.bit_field.render()
 
         # otherwise, add this sizer block to the requests callback list.
