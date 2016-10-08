@@ -46,7 +46,7 @@ class Fuzzer(object):
 
 		self.packet = None
 
-		self.oid_cisco = "1.3.6.1.4.1.9.9"
+		self.oid_cisco = "1.3.6.1.4.1.9.9.491.1.3.3.1.1.5.9"
 
 
 
@@ -155,20 +155,21 @@ if __name__ == '__main__':
     target.procmon = pedrpc.client("127.0.0.1", 7437)
 
     target.procmon_options = \
-
     {
 
-        "gdb_path" : "/usr/bin/gdb",
+        "path" : "/usr/bin/gdb",
 
-        "debug_file" : "",
+        "cmdline" : [],
 
-        "gdb_cmd" : ["target remote 192.168.56.1:1111", "i r", "c"],
-
-        "proc_args" : "",
+        "stdin" : ["target remote 192.168.56.1:1111", "i r", "c"],
 
         "crash_cmd" : ["bt","info reg"],
 
-        "continue_spacing" : 0.3
+        "continue_spacing" : 0.3,
+
+        "crash_code" : ["(gdb)", ],
+
+        "match_logic" : 1
 
     }
 
