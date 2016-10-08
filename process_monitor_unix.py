@@ -128,7 +128,7 @@ class debugger_thread(threading.Thread):
         self.pid = None
         self.readBuff = ""
         self.gdbActive = False
-        self.c_str = "(gdb)"    #出现此字符串则表明进程crash
+        self.c_str = self.procmon_options["crash_code"]    #出现此特征码则表明进程crash
         self.crash = False
 
         self.wrPipe = [0,0]
@@ -146,7 +146,7 @@ class debugger_thread(threading.Thread):
         
     def start_monitoring(self):
         '''
-        @desc:  gdb子进程
+        @desc:  debugger子进程
         '''
 
         os.close(self.rdPipe[0])
@@ -158,7 +158,9 @@ class debugger_thread(threading.Thread):
         os.dup2(self.wrPipe[0],sys.stdin.fileno())
         os.dup2(self.errPipe[1],sys.stderr.fileno())
 
-        os.execl(self.procmon_options["gdb_path"],self.procmon_options["gdb_path"])
+        #启动debugger
+        args = self.procmon_options["path"] + self.procmon_options["cmdline"]
+        os.execv(self.procmon_options["path"], args)
 
     def write_to_gdb(self,cmd=""):
         if len(cmd) > 0 and cmd[len(cmd)-1]!='\n':
@@ -175,7 +177,7 @@ class debugger_thread(threading.Thread):
         timestamp = time.time()
         self.pid = os.fork()
         if self.pid == 0:
-            #gdb子进程
+            #debugger子进程
             self.start_monitoring()
             os._exit(0)
 
@@ -184,60 +186,70 @@ class debugger_thread(threading.Thread):
         os.close(self.errPipe[1])
 
         try:
-            #设置gdb加载的文件
-            if len(self.procmon_options["debug_file"]) > 0:
-                cmd = "file %s" % self.procmon_options["debug_file"]
-                self.write_to_gdb(cmd)
+            #debugger输入流配置的命令
+            if len(self.procmon_options["stdin"]) > 0:
+                for cmd in self.procmon_options["stdin"]:
+                    self.write_to_gdb(cmd)
 
-            #设置gdb其它命令
-            for cmd in self.procmon_options["gdb_cmd"]:
-                self.write_to_gdb(cmd)
-
-            #设置进程启动参数
-            if len(self.procmon_options["proc_args"]) > 0:
-                cmd = "set args %s" % self.procmon_options["proc_args"]
-                self.write_to_gdb(cmd)
         except:
-            print "Set gdb cmd failed"
+            print "Set debugger cmd failed"
             os._exit(0)
 
         while True:
-            #从管道中读取gdb输出数据
+            #从管道中读取debugger输出数据
             rdSet = [self.rdPipe[0],self.errPipe[0]]
             rdList, wrList, errList = select.select(rdSet,[],[],0.001)
             for r in rdList:
                 if r is self.rdPipe[0]:
                     try:
                         #从管道中读取数据
-                        self.readBuff = os.read(r,1024)
-                        if len(self.readBuff) == 0:
+                        self.readBuff = os.read(r,65536)
+                        if len(self.readBuff) <= 0:
+                            print "rd pipe read failed"
                             continue
                         print self.readBuff
+                        servlet.stdoutInfo = self.readBuff
 
                         if not self.crash and self.gdbActive:
-                            try:
-                                #从读取的数据中检查进程是否crash
-                                self.readBuff.index(self.c_str)
-                                self.crash = True
-                                #当进程发生crash，向gdb中写入读取crash信息的命令
+                            #从读取的数据中检查进程是否crash
+                            if self.procmon_options["match_logic"] == 1:
+                                for str in self.c_str:
+                                    try:
+                                        self.readBuff.index(str)
+                                    except:
+                                        #抛出异常则表明进程未crash
+                                        self.crash = False
+                                        break
+                                    self.crash = True
+                            else:
+                                for str in self.c_str:
+                                    try:
+                                        self.readBuff.index(str)
+                                    except:
+                                        #抛出异常则表明进程未crash
+                                        continue
+                                    self.crash = True
+                                    break
+
+                            #当进程发生crash，向gdb中写入读取crash信息的命令
+                            if self.crash:
                                 for cmd in self.procmon_options["crash_cmd"]:
                                     self.write_to_gdb(cmd)
-                            except:
-                                #抛出异常则表明进程未crash
-                                pass
 
                         if self.crash:
                             #收集crash信息
                             servlet.report_crash(self.readBuff)
                             timestamp = time.time()
 
-                    except:
+                    except Exception, e:
+                        print "pipe read exception.\nTrace info:"
+                        print e
                         continue
 
                 elif r is self.errPipe[0]:
                     try:
                         self.readBuff = os.read(r, 1024)
-                        if len(self.readBuff) == 0:
+                        if len(self.readBuff) <= 0:
                             continue
 
                         print self.readBuff
@@ -272,6 +284,7 @@ class nix_process_monitor_pedrpc_server(server):
 
         self.report_EOF = False
         self.crashReport = ""
+        self.stdoutInfo = None
 
     ####################################################################################################################
     def report_crash(self,report):
@@ -333,6 +346,8 @@ class nix_process_monitor_pedrpc_server(server):
                 elif self.recvData.protoName == "Fetch_Report":
                     #等待进程反应时间。
                     time.sleep(self.procmon_options["continue_spacing"])
+
+                    #回送报告
                     if self.debug_thread.crash:
                         while not self.report_EOF:
                             time.sleep(0.1)
@@ -340,7 +355,7 @@ class nix_process_monitor_pedrpc_server(server):
                         self._ex_send(debugReport)
                         os._exit(0)
                     else:
-                        debugReport = Debug_Report(False)
+                        debugReport = Debug_Report(crash=False, report=self.stdoutInfo)
                         self._ex_send(debugReport)
 
 

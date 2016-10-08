@@ -44,12 +44,13 @@ class target:
         '''
         procmon_options =
         {
-            "gdb_path" : "",            #gdb文件路径
-            "debug_file" : "",          #debug的文件，可为空
-            "gdb_cmd" : [],             #gdb其它启动命令
-            "proc_args" : "",           #启动进程的参数
-            "crash_cmd" : []            #发生crash后，gdb获取crash信息命令
-            "continue_spacing" : 1      #等待进程反应时间
+            "path" : "",                #debugger文件路径
+            "cmdline" : "",             #debug的文件，可为空
+            "stdin" : [],               #debugger从输入流中传入的命令
+            "crash_cmd" : [],           #发生crash后，debugger获取crash信息命令
+            "continue_spacing" : 1,     #等待进程反应时间
+            "crash_code" : [],          #发生crash的特征码
+            "match_logic" : 1           #匹配逻辑 1:与 0:或
         }
         '''
 
