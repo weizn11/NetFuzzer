@@ -159,7 +159,8 @@ class debugger_thread(threading.Thread):
         os.dup2(self.errPipe[1],sys.stderr.fileno())
 
         #启动debugger
-        args = self.procmon_options["path"] + self.procmon_options["cmdline"]
+        args = self.procmon_options["cmdline"]
+        args.insert(0, self.procmon_options["path"])
         os.execv(self.procmon_options["path"], args)
 
     def write_to_gdb(self,cmd=""):
