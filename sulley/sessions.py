@@ -45,7 +45,7 @@ class target:
         procmon_options =
         {
             "path" : "",                #debugger文件路径
-            "cmdline" : "",             #debug的文件，可为空
+            "cmdline" : [],             #debug的文件，可为空
             "stdin" : [],               #debugger从输入流中传入的命令
             "crash_cmd" : [],           #发生crash后，debugger获取crash信息命令
             "continue_spacing" : 1,     #等待进程反应时间
