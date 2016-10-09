@@ -45,7 +45,7 @@ class target:
         procmon_options =
         {
             "path" : "",                #debugger文件路径
-            "cmdline" : [],             #debug的文件，可为空
+            "cmdline" : [],             #命令行参数，可为空
             "stdin" : [],               #debugger从输入流中传入的命令
             "crash_cmd" : [],           #发生crash后，debugger获取crash信息命令
             "continue_spacing" : 1,     #等待进程反应时间
@@ -101,7 +101,7 @@ class session ():
                   proto="tcp",              #使用的连接协议
                   sock_timeout=5.0,         #socket超时时间
                   send_iface="eth0",        #发送数据包使用的网卡
-                  sniff_iface="eth0",      #进行网络监听的网卡
+                  sniff_iface="eth0",       #进行网络监听的网卡
                   sniff_stop_filter=None,   #设置网络监视器的stop_filter
                   sniff_timout=None,        #网络监视器超时间隔
                   sniff_switch=False,       #是否启动网络监视器

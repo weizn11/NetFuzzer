@@ -207,7 +207,10 @@ class debugger_thread(threading.Thread):
                         self.readBuff = os.read(r,65536)
                         if len(self.readBuff) <= 0:
                             print "rd pipe read failed"
-                            continue
+                            self.crash = True
+                            servlet.report_crash("rd pipe read failed")
+                            servlet.report_EOF = True
+                            return
                         print self.readBuff
                         servlet.stdoutInfo = self.readBuff
 
@@ -232,7 +235,7 @@ class debugger_thread(threading.Thread):
                                     self.crash = True
                                     break
 
-                            #当进程发生crash，向gdb中写入读取crash信息的命令
+                            #当进程发生crash，向debugger中写入读取crash信息的命令
                             if self.crash:
                                 for cmd in self.procmon_options["crash_cmd"]:
                                     self.write_to_gdb(cmd)
@@ -245,7 +248,10 @@ class debugger_thread(threading.Thread):
                     except Exception, e:
                         print "pipe read exception.\nTrace info:"
                         print e
-                        continue
+                        self.crash = True
+                        servlet.report_crash("rd pipe read failed")
+                        servlet.report_EOF = True
+                        return
 
                 elif r is self.errPipe[0]:
                     try:
