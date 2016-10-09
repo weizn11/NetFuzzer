@@ -41,7 +41,7 @@ class Fuzzer(object):
 		self.icmp = False
 		self.target = None
 		self.mutex = threading.Lock()
-		self.pkt_file = open("snmp_1", "w")
+		self.pkt_file = open("snmp_2", "w")
 
 	def block_mutate_callback(self, block):
 		pass
@@ -110,7 +110,9 @@ class Fuzzer(object):
 		return self.data
 
 	def fetch_proc_crash_callback(self, report):
-		print binascii.b2a_hex(self.data)
+		self.pkt_file.write(binascii.b2a_hex(data))
+		self.pkt_file.write("\n")
+		self.pkt_file.flush()
 		return False
 
 	def post_send_callback(self, sock, data):
@@ -166,24 +168,25 @@ if __name__ == '__main__':
 
     sess.block_mutate_callback = fuzz.block_mutate_callback
     sess.pre_send_callback = fuzz.pre_send_callback
-    #sess.fetch_proc_crash_callback = fuzz.fetch_proc_crash_callback
+    sess.fetch_proc_crash_callback = fuzz.fetch_proc_crash_callback
     sess.post_send_callback = fuzz.post_send_callback
     sess.packet_handler_callback = fuzz.packet_handler_callback
 
-    target = sessions.target("10.0.0.36", 161)
+    target = sessions.target("10.0.0.37", 161)
     fuzz.target = target
-    '''
+
     target.procmon = pedrpc.client("127.0.0.1", 7437)
     target.procmon_options = \
     {
-        "gdb_path" : "/usr/bin/gdb",
-        "debug_file" : "",
-        "gdb_cmd" : ["target remote 192.168.56.1:1111", "i r", "c"],
-        "proc_args" : "",
+        "path" : "/usr/bin/gdb",
+        "cmdline" : [],
+        "stdin" : ["target remote 192.168.56.1:7777", "i r", "c"],
         "crash_cmd" : ["bt","info reg"],
-        "continue_spacing" : 0.3
+        "continue_spacing" : 0,
+        "crash_code" : ["(gdb)"],
+        "match_logic" : 1
     }
-    '''
+
     sess.add_block(s_get("SNMP_Request"))
     sess.add_target(target)
 
