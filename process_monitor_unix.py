@@ -210,7 +210,8 @@ class debugger_thread(threading.Thread):
                             self.crash = True
                             servlet.report_crash("rd pipe read failed")
                             servlet.report_EOF = True
-                            return
+                            time.sleep(10)
+                            continue
                         print self.readBuff
                         servlet.stdoutInfo = self.readBuff
 
@@ -251,7 +252,8 @@ class debugger_thread(threading.Thread):
                         self.crash = True
                         servlet.report_crash("rd pipe read failed")
                         servlet.report_EOF = True
-                        return
+                        time.sleep(10)
+                        continue
 
                 elif r is self.errPipe[0]:
                     try:
