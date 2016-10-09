@@ -101,7 +101,7 @@ class session ():
                   proto="tcp",              #使用的连接协议
                   sock_timeout=5.0,         #socket超时时间
                   send_iface="eth0",        #发送数据包使用的网卡
-                  sniff_device="eth0",      #进行网络监听的网卡
+                  sniff_iface="eth0",      #进行网络监听的网卡
                   sniff_stop_filter=None,   #设置网络监视器的stop_filter
                   sniff_timout=None,        #网络监视器超时间隔
                   sniff_switch=False,       #是否启动网络监视器
@@ -134,7 +134,7 @@ class session ():
         self.iface               = send_iface
 
         self.message             = ''
-        self.device              = sniff_device
+        self.sniff_iface              = sniff_iface
         self.sniff_thread         = None
         self.sniff_switch = sniff_switch
         self.sniff_filter = sniff_filter
@@ -144,7 +144,7 @@ class session ():
         #创建网络监视器
         if self.sniff_switch:
             try:
-                self.sniff_thread = SniffThread.Sniffer(self.device,self.sniff_filter,self.sniff_stop_filter,self.sniff_timeout)
+                self.sniff_thread = SniffThread.Sniffer(self.sniff_iface,self.sniff_filter,self.sniff_stop_filter,self.sniff_timeout)
             except Exception, e:
                 print "sniff thread create failed.\nTrace info:"
                 print e
