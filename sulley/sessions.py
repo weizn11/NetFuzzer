@@ -119,7 +119,6 @@ class session ():
         self.proto               = proto.lower()
         self.ssl                 = False
         self.timeout             = sock_timeout
-        self.total_num_mutations = 0
         self.total_mutant_index  = 0
         self.fuzz_targets        = []
         self.fuzz_blocks         = []
@@ -294,7 +293,6 @@ class session ():
         f_target.procmon_start()
 
         self.start_wait_callback()
-        print "Total mutations: " + str(self.total_num_mutations) + "\n"
         print "Press CTRL/C to cancel in ",
         for i in range(3):
             print str(3 - i) + " ",
