@@ -145,7 +145,6 @@ class session ():
         if self.sniff_switch:
             try:
                 self.sniff_thread = SniffThread.Sniffer(self.device,self.sniff_filter,self.sniff_stop_filter,self.sniff_timeout)
-                self.sniff_thread.packet_handler_callback = self.packet_handler_callback
             except Exception, e:
                 print "sniff thread create failed.\nTrace info:"
                 print e
