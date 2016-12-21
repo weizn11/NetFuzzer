@@ -9,7 +9,7 @@ import dnet
 
 import logging
 import sex
-import primitives
+import ping
 import SniffThread
 import protocol
 import signal
@@ -31,6 +31,8 @@ class target:
         #Fuzz目标地址
         self.host      = host
         self.port      = port
+
+        self.pinger = ping.Pinger(self.host)
 
         #进程监视器
         self.procmon           = None   #type : pedrpc.client()
@@ -73,10 +75,15 @@ class target:
         debugCmd = protocol.Debug_Cmd("start")
         self.procmon.ex_send(debugCmd)
 
-
+    def detect_crash_via_ping(self):
+        for idx in range(0, 5):
+            if self.pinger.ping() is None:
+                continue
+            else:
+                return False
+        return True
 
 ########################################################################################################################
-
 class custom_sock():
     def __init__(self,target, ex_send_callback):
         self.ex_send_callback = ex_send_callback
@@ -99,7 +106,7 @@ class session ():
                   self,
                   loop_sleep_time=0.0,      #每次循环fuzz的时间间隔
                   proto="tcp",              #使用的连接协议
-                  sock_timeout=5.0,         #socket超时时间
+                  sock_timeout=None,        #socket超时时间
                   send_iface="eth0",        #发送数据包使用的网卡
                   sniff_iface="eth0",       #进行网络监听的网卡
                   sniff_stop_filter=None,   #设置网络监视器的stop_filter
@@ -107,21 +114,24 @@ class session ():
                   sniff_switch=False,       #是否启动网络监视器
                   sniff_filter="",          #设置数据包过滤
                   keep_alive=False,         #是否保持socket连接
-                  send_sleep_time=0.0       #发送每个测试用例的时间间隔
+                  send_sleep_time=0.0,      #发送每个测试用例的时间间隔
+                  fuzz_store_limit=None,    #存储生成的fuzz数据最大数量
+                  pinger_threshold=None     #是否开启ping检测crash
                 ):
 
         log_level=logging.INFO
         logfile=None
         logfile_level=logging.DEBUG
 
-        self.loop_sleep_time          = loop_sleep_time
-        self.send_sleep_time          = send_sleep_time
+        self.loop_sleep_time     = loop_sleep_time
+        self.send_sleep_time     = send_sleep_time
         self.proto               = proto.lower()
         self.ssl                 = False
         self.timeout             = sock_timeout
         self.total_mutant_index  = 0
         self.fuzz_targets        = []
         self.fuzz_blocks         = []
+        self.afl_fuzz_blocks     = []
         self.procmon_results     = {}
         self.protmon_results     = {}
         self.pause_flag          = False
@@ -133,12 +143,18 @@ class session ():
         self.iface               = send_iface
 
         self.message             = ''
-        self.sniff_iface              = sniff_iface
-        self.sniff_thread         = None
-        self.sniff_switch = sniff_switch
-        self.sniff_filter = sniff_filter
-        self.sniff_stop_filter = sniff_stop_filter
-        self.sniff_timeout = sniff_timout
+        self.sniff_iface         = sniff_iface
+        self.sniff_thread        = None
+        self.sniff_switch        = sniff_switch
+        self.sniff_filter        = sniff_filter
+        self.sniff_stop_filter   = sniff_stop_filter
+        self.sniff_timeout       = sniff_timout
+
+        self.cur_mutate_frame    = None
+        self.fuzz_store_list     = []
+        self.fuzz_store_limit    = fuzz_store_limit
+        self.fuzz_send_count    = 0
+        self.pinger_threshold    = pinger_threshold
 
         #创建网络监视器
         if self.sniff_switch:
@@ -185,12 +201,15 @@ class session ():
         else:
             raise sex.SullyRuntimeError("INVALID PROTOCOL SPECIFIED: %s" % self.proto)
 
-
     ####################################################################################################################
     def add_block (self, block):
         self.fuzz_blocks.append(block)
+        return
 
-        return self
+    ####################################################################################################################
+    def add_afl_block(self, block):
+        self.afl_fuzz_blocks.append(block)
+        return
 
     ####################################################################################################################
     def add_target (self, target):
@@ -198,7 +217,6 @@ class session ():
         @type  target: session.target()
         @param target: Target to add to session
         '''
-
         #连接到进程监视器
         target.procmon_connect()
 
@@ -214,6 +232,17 @@ class session ():
         @param target:  Fuzz目标
         @return: (boolean) 1.True:重新连接 2.退出程序
         '''
+        print "Connect failed."
+        return True
+
+    def connect_success_callback(self, sock, target):
+        '''
+        @type socket
+        @param sock:    连接目标的socket
+        @type session.target()
+        @param target:  Fuzz目标
+        @return: (boolean) 1.True:重新连接 2.继续接下来的流程
+        '''
         return False
 
     def send_failed_callback(self, target, data):
@@ -224,10 +253,23 @@ class session ():
         @param data: 生成好的测试用例
         @return: True:重新进行连接  False:退出程序
         '''
+        print "Send failed."
+        return True
 
-        return False
+    def set_mutate_frame_callback(self):
+        '''
+        @return: 将要使用的数据生成框架
+        '''
+        return "sulley"
 
-    def block_mutate_callback(self, block):
+    def pre_mutate_callback(self, block):
+        '''
+        @param block: 新生成的测试用例
+        @return: None
+        '''
+        pass
+
+    def post_mutate_callback(self, block):
         '''
         @type: blocks.request()
         @param block: 新生成的测试用例
@@ -238,11 +280,22 @@ class session ():
     def start_wait_callback(self):
         pass
 
-    def fetch_proc_crash_callback(self, report):
+    def fetch_proc_crash_callback(self, report, fuzzStoreList):
         '''
         @desc: 进程监视器已捕获到crash信息
         @type: String
         @param report: crash报告
+        @type: list
+        @param fuzzStoreList: 存储的fuzz数据
+        @return: (boolean)  1.True:继续进行接下来的流程 False:退出程序
+        '''
+        return False
+
+    def detect_target_crash_callback(self, fuzzStoreList):
+        '''
+        @desc: Pinger已捕获到crash信息
+        @type: list
+        @param fuzzStoreList: 存储的fuzz数据
         @return: (boolean)  1.True:继续进行接下来的流程 False:退出程序
         '''
         return False
@@ -263,18 +316,15 @@ class session ():
         os._exit(0)
 
     def fuzz (self):
-        '''
-        '''
-
         reconn = False
         againMutate = False
         data = None
         sock = None
         blockIndex = 0
+        aflBlockIndex = 0
         newMutant = True
 
         f_target = self.fuzz_targets[0]
-
         signal.signal(signal.SIGINT, self.sigint_handler)
 
         #启动网络监视器
@@ -284,10 +334,9 @@ class session ():
                 self.sniff_thread.start()
                 time.sleep(0.1)
             except Exception, e:
-                print "sniff thread start error.\nTrace info:"
-                print e
-                #os._exit(0)
-            print "sniff thread start."
+                self.logger.critical("Sniff thread start error. Exception: %s" % str(e))
+                os._exit(0)
+            self.logger.info("Sniff thread start.")
 
         #启动进程监视器
         f_target.procmon_start()
@@ -298,45 +347,70 @@ class session ():
             print str(3 - i) + " ",
             sys.stdout.flush()
             time.sleep(1)
-        print "\nFuzzing...\n"
-
-        done_with_fuzz_node = False
+        print "\n"
+        self.logger.info("Start fuzzing...")
 
         # loop through all possible mutations of the fuzz block.
-        while not done_with_fuzz_node:
-            if blockIndex >= len(self.fuzz_blocks):
-                blockIndex = 0
+        while True:
+            #指定fuzz数据生成框架
+            try:
+                self.cur_mutate_frame = self.set_mutate_frame_callback()
+            except Exception, e:
+                self.logger.critical("set_mutate_frame_callback() error. Exception: %s" % str(e))
+                raise e
+            if self.cur_mutate_frame not in ("sulley", "afl"):
+                self.logger.critical("cur_mutate_frame does not seem to be valid. value: %s" % self.cur_mutate_frame)
+                raise Exception("[ERROR] cur_mutate_frame does not seem to be valid. value: %s" % self.cur_mutate_frame)
 
+            #检测索引越界
+            if self.cur_mutate_frame == "sulley":
+                if blockIndex >= len(self.fuzz_blocks):
+                    blockIndex = 0
+            else:
+                if aflBlockIndex >= len(self.afl_fuzz_blocks):
+                    aflBlockIndex = 0
+
+            #当前fuzz计数
             if newMutant:
                 self.total_mutant_index += 1
-                self.logger.info("fuzzing %d" % (self.total_mutant_index))
+                self.logger.info("Start fuzzing %d" % (self.total_mutant_index))
                 newMutant = False
 
-            #从数据结构列表中取出一个进行测试
-            f_block = self.fuzz_blocks[blockIndex]
+            #从数据列表中取出一个进行测试
+            if self.cur_mutate_frame == "sulley":
+                f_block = self.fuzz_blocks[blockIndex]
+            else:
+                f_block = self.afl_fuzz_blocks[aflBlockIndex]
+
+            #设置block
+            try:
+                self.pre_mutate_callback(self)
+            except Exception, e:
+                self.logger.critical("pre_mutate_callback() error. Exception: %s" % str(e))
+                raise e
 
             #生成测试数据
-            if not f_block.mutate():
-                self.logger.error("all possible mutations for current fuzz node exhausted")
-                if self.total_mutant_index >= self.total_num_mutations:
-                    #已用尽所有的测试用例
-                    done_with_fuzz_node = True
-                    continue
-            else:
-                #成功获取到新的测试用例
-                try:
-                    self.block_mutate_callback(f_block)
-                except Exception, e:
-                    print "block_mutate_callback() Exception.\nTrace info:"
-                    print e
-                    raise Exception
+            try:
+                if not f_block.mutate():
+                    self.logger.critical("all possible mutations for current fuzz node exhausted")
+                    os._exit(-1)
+            except Exception, e:
+                self.logger.critical("Block mutate error. Exception: %s" % str(e))
+                raise e
+
+            #成功获取到新的测试用例
+            try:
+                self.post_mutate_callback(f_block)
+            except Exception, e:
+                self.logger.critical("post_mutate_callback() error. Exception: %s" % str(e))
+                raise e
 
             def error_handler (e, msg, sock=None):
                 if not self.layer2 and not self.custom and sock:
                     sock.close()
-                self.logger.critical(msg)
+                self.logger.critical(msg + " Exception: %s" % str(e))
 
-            while 1:
+            while True:
                 #判断连接协议并创建连接
                 if self.layer2:
                     sock = dnet.eth(self.iface) #create eth class
@@ -349,10 +423,11 @@ class session ():
                     if not sock or not self.keep_alive:
                         #创建socket
                         try:
-                            (family, socktype, proto, canonname, sockaddr)=socket.getaddrinfo(f_target.host, f_target.port)[0]
+                            (family, socktype, proto, canonname, sockaddr) = \
+                                socket.getaddrinfo(f_target.host, f_target.port)[0]
                             sock = socket.socket(family, self.proto)
                         except Exception, e:
-                            error_handler(e, "failed creating socket", sock)
+                            error_handler(e, "failed creating socket.", sock)
                             sock = None
                             continue
 
@@ -362,16 +437,25 @@ class session ():
                             # Connect is needed only for TCP stream
                             if self.proto == socket.SOCK_STREAM:
                                 sock.connect((f_target.host, f_target.port))
+                            if self.connect_success_callback(sock, f_target):
+                                sock.close()
+                                sock = None
+                                continue
                         except Exception, e:
-                            error_handler(e, "failed connecting on socket", sock)
+                            error_handler(e, "failed connecting on socket.", sock)
                             sock = None
                             try:
+                                # 立刻通过ping测试目标设备是否crash
+                                if self.pinger_threshold:
+                                    if f_target.detect_crash_via_ping():
+                                        # 目标crash
+                                        if self.detect_target_crash_callback(self.fuzz_store_list) is False:
+                                            os._exit(0)
                                 reconn = self.connect_failed_callback(sock, f_target)
                                 if not reconn:
                                     os._exit(0)
                             except Exception, e:
-                                print "connect_failed_callback() exception.\nTrace info:"
-                                print e
+                                self.logger.critical("connect_failed_callback() error. Exception: %s" % str(e))
                             continue
 
                 #向目标发送生成好的测试用例
@@ -382,55 +466,61 @@ class session ():
                         sock.close()
                         sock = None
                     elif not normal and not reconn:
-                        print "disconnect!"
+                        self.logger.info("disconnect!")
                         os._exit(0)
                 except Exception, e:
-                    error_handler(e, "failed transmitting fuzz block", sock)
+                    error_handler(e, "failed transmitting fuzz block.", sock)
                     sock = None
                     continue
                 break  #don't need resend
 
             # done with the socket.
-            if not self.layer2 and not sock and not self.keep_alive:
+            if self.layer2 is False and sock is not None and self.keep_alive is False:
                 sock.close()
                 sock = None
 
             if not againMutate:
-                blockIndex += 1
+                if self.cur_mutate_frame == "sulley":
+                    blockIndex += 1
+                else:
+                    aflBlockIndex += 1
 
             #输出日志
             if blockIndex >= len(self.fuzz_blocks):
-                self.logger.info("sleeping for %f seconds\n-------------------------------------------------" % self.loop_sleep_time)
+                self.logger.info("sleeping for %f seconds\n-------------------------------------------------" %
+                                 self.loop_sleep_time)
                 time.sleep(self.loop_sleep_time)
                 newMutant = True
             elif self.send_sleep_time <> 0:
-                self.logger.info("sleeping for %f seconds\n-------------------------------------------------" % self.send_sleep_time)
+                self.logger.info("sleeping for %f seconds\n-------------------------------------------------" %
+                                 self.send_sleep_time)
                 time.sleep(self.send_sleep_time)
 
     ####################################################################################################################
-    def post_send_callback(self, sock, data):
+    def post_send_callback(self, sock, data, fuzzStoreList):
         '''
         @type:  Socket
         @param sock: 连接到Fuzz目标的Socket
         @type:  String
         @param data: 生成好的测试用例
+        @type: list
+        @param fuzzStoreList: 存储的fuzz数据
         @return: (boolean, boolean) 1.True: 重新发送此数据包 False:不用重新发送  2.True: 用新的测试用例再次测试此步骤 False:不用再做此步骤测试
         '''
         return (False, False)
 
-    def post_send (self, sock, data):
+    def post_send(self, sock, data, fuzzStoreList):
         '''
         @type:  Socket
         @param sock: 连接到Fuzz目标的Socket
         @type:  String
         @param data: 生成好的测试用例
+        @type: list
+        @param fuzzStoreList: 存储的fuzz数据
         @return: (boolean, boolean) 1.True: 重新发送此数据包 False:不用重新发送  2.True: 用新的测试用例再次测试此步骤 False:不用再做此步骤测试
         '''
-
-        (resend, againMutate) = self.post_send_callback(sock, data)
-
+        (resend, againMutate) = self.post_send_callback(sock, data, fuzzStoreList)
         return (resend, againMutate)
-
 
     ####################################################################################################################
     def packet_handler_callback(self, pkt):
@@ -452,7 +542,6 @@ class session ():
         @type: String
         @return: 返回修改后的发送数据包
         '''
-
         return data
 
     def pre_send (self, sock, block, _data):
@@ -466,9 +555,7 @@ class session ():
         @type: String
         @return: 返回修改后的发送数据包
         '''
-
         data = self.pre_send_callback(sock, block, _data)
-
         return data
 
     ####################################################################################################################
@@ -485,8 +572,7 @@ class session ():
             else:
                 data = _data
         except Exception, e:
-            print "generate fuzzing data error.\nTrace info:"
-            print e
+            self.logger.error("Generate fuzzing data error. Exception: %s" % str(e))
             return
 
         while sendFlag:
@@ -507,39 +593,58 @@ class session ():
             try:
                 data = self.pre_send(sock, block, data)
             except Exception, e:
-                print "pre_send_callback() exception.\nTrace info:"
-                print e
-                raise Exception
+                # 立刻通过ping测试目标设备是否crash
+                if self.pinger_threshold:
+                    if target.detect_crash_via_ping():
+                        # 目标crash
+                        if self.detect_target_crash_callback(self.fuzz_store_list) is False:
+                            os._exit(0)
+                self.logger.critical("pre_send_callback() error. Exception: %s" % str(e))
+                raise e
 
-            #开始发送测试数据包
+            #存储fuzz数据
+            if self.fuzz_store_limit is not None and self.fuzz_store_limit > 0:
+                if len(self.fuzz_store_list) >= self.fuzz_store_limit:
+                    self.fuzz_store_list.pop(0)
+                self.fuzz_store_list.append(data)
+
+            #发送fuzz数据包
             if self.layer2:   #layer2
                 try:
                     sock.send(data)
                 except Exception, inst:
                     self.logger.error("Socket error, send: %s" % inst)
                     try:
+                        # 立刻通过ping测试目标设备是否crash
+                        if self.pinger_threshold:
+                            if target.detect_crash_via_ping():
+                                # 目标crash
+                                if self.detect_target_crash_callback(self.fuzz_store_list) is False:
+                                    os._exit(0)
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
                         normal = False
                     except Exception, e:
-                        print "send_failed_callback() error.\nTrace info:"
-                        print e
-                        raise Exception
-
+                        self.logger.critical("send_failed_callback() error. Exception: %s" % str(e))
+                        raise e
             elif self.custom:   #自定义发送函数
                 try:
                     sock.send(data)
                 except Exception, e:
-                    self.logger.error("custom send exception.\nTrace info:")
-                    print e
+                    self.logger.critical("Custom send error. Exception: %s" % str(e))
                     try:
+                        # 立刻通过ping测试目标设备是否crash
+                        if self.pinger_threshold:
+                            if target.detect_crash_via_ping():
+                                # 目标crash
+                                if self.detect_target_crash_callback(self.fuzz_store_list) is False:
+                                    os._exit(0)
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
                         normal = False
                     except Exception, e:
-                        print "send_failed_callback() error.\nTrace info:"
-                        print e
-                        raise Exception
+                        self.logger.critical("send_failed_callback() error. Exception: %s" % str(e))
+                        raise e
             else:   #TCP or UDP
                 try:
                     if self.proto == socket.SOCK_STREAM:
@@ -547,48 +652,65 @@ class session ():
                     else:
                         sock.sendto(data, (target.host, target.port))
                 except Exception, inst:
-                    self.logger.error("Socket error, send: %s" % inst)
+                    self.logger.critical("Send error. Exception: %s" % inst)
                     try:
+                        #立刻通过ping测试目标设备是否crash
+                        if self.pinger_threshold:
+                            if target.detect_crash_via_ping():
+                                # 目标crash
+                                if self.detect_target_crash_callback(self.fuzz_store_list) is False:
+                                    os._exit(0)
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
                         normal = False
                     except Exception, e:
-                        print "send_failed_callback() error.\nTrace info:"
-                        print e
-                        raise Exception
+                        self.logger.critical("send_failed_callback() error. Exception: %s" % str(e))
+                        raise e
+
+            #通过ping测试目标设备是否crash
+            if self.pinger_threshold:
+                self.fuzz_send_count += 1
+                if self.fuzz_send_count >= self.pinger_threshold:
+                    self.fuzz_send_count = 0
+                    if target.detect_crash_via_ping():
+                        #目标crash
+                        if self.detect_target_crash_callback(self.fuzz_store_list) is False:
+                            os._exit(0)
 
             #从进程监视器中获取进程信息
             if target.procmon:
                 try:
                     crash, report = target.procmon.fetch_procmon_status()
                 except Exception, e:
-                    print "fetch_procmon_status() error.\nTrace info:"
-                    print e
+                    self.logger.critical("fetch_procmon_status() error. Exception: %s" % str(e))
                     os._exit(0)
-                    raise Exception
                 if crash:
                     #测试用例造成进程crash，调用crash回调函数，传入crash报告。
                     try:
-                        if not self.fetch_proc_crash_callback(report):
+                        if not self.fetch_proc_crash_callback(report, self.fuzz_store_list):
                             print "Fuzzing complete."
                             os._exit(0)
                     except Exception, e:
-                        print "fetch_proc_crash_callback() exception.\nTrace info:"
-                        print e
-                    #print report
-                    #print "crash data:",binascii.b2a_hex(data)
-                    #os._exit(0)
+                        self.logger.critical("fetch_proc_crash_callback() error. Exception: %s" % str(e))
 
             #发送结束后的回调函数
             if normal:
                 try:
                     #返回重发和重新对此步骤生成测试用例的标识。
-                    (sendFlag, againMutate) = self.post_send(sock, data)
+                    (sendFlag, againMutate) = self.post_send(sock, data, self.fuzz_store_list)
                 except Exception, e:
-                    print "post_send() error.\nTrace info:"
-                    print e
-                    raise Exception
+                    # 立刻通过ping测试目标设备是否crash
+                    if self.pinger_threshold:
+                        if target.detect_crash_via_ping():
+                            # 目标crash
+                            if self.detect_target_crash_callback(self.fuzz_store_list) is False:
+                                os._exit(0)
+                            else:
+                                return (reconn, normal, againMutate)
+                    self.logger.critical("post_send() error. Exception: %s" % str(e))
+                    raise e
 
         return (reconn, normal, againMutate)
+
 ########################################################################################################################
 

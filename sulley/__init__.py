@@ -6,6 +6,7 @@ import sulley.primitives
 import sulley.sex
 import sulley.sessions
 import sulley.utils
+import sulley.ex_afl
 
 BIG_ENDIAN      = ">"
 LITTLE_ENDIAN   = "<"
@@ -42,7 +43,6 @@ def s_get (name=None):
         raise sex.SullyRuntimeError("blocks.REQUESTS NOT FOUND: %s" % name)
 
     return blocks.REQUESTS[name]
-
 
 def s_initialize (name):
     '''
@@ -531,16 +531,6 @@ def s_qword (value, endian="<", format="binary", signed=False, val_range=(None,N
     qword = primitives.qword(value, endian, format, signed, val_range, fuzzable, wild, name)
     blocks.CURRENT.push(qword)
 
-"""
-取消了全局测试用例个数限制
-def set_max_mutations(num=1000):
-    '''
-    @desc: 设置全局测试用例生成总数
-    @param num: 生成测试用例总个数
-    @return: 无返回值
-    '''
-    primitives.gl_max_mutations = num
-"""
 
 ########################################################################################################################
 ### ALIASES

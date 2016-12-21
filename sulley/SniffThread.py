@@ -1,5 +1,6 @@
 import threading
 import time
+import os
 from scapy.all import *
 
 class Sniffer(threading.Thread):
@@ -21,8 +22,7 @@ class Sniffer(threading.Thread):
                 recv_packet = sniff(iface=self.iface,filter=self.filter,store=0,
                                     prn=self.packet_handler_callback,stop_filter=self.sniff_stop_filter,timeout=self.timeout)
             except Exception, e:
-                print "sniffer start error.\nTrace info:"
-                print e
+                print "Sniffer start error. Exception: %s" % str(e)
                 os._exit(0)
 
         self.stopFlag = True
