@@ -72,14 +72,38 @@ class AFL(object):
         self.wrPipe = None
         self.rdPipe = None
         self.AFLpid = None
-        self.aflPath = "/usr/bin/py-afl-fuzz"
-        self.pythonPath = "/usr/bin/python"
+        self.aflPath = None
+        self.pythonPath = None
 
         self.curMutateData = None
         self.mutateSymbol = None
         self.mutateLength = None
 
         self.startFlag = False
+
+        try:
+            pipe = os.popen("which python", "r")
+            buf = pipe.read(100)
+            if len(buf) < 5:
+                print "[ERROR] Not found Python."
+                os._exit(-1)
+            if buf[-1] == '\n':
+                buf = buf[:-1]
+            self.pythonPath = buf
+            pipe.close()
+
+            pipe = os.popen("which py-afl-fuzz", "r")
+            buf = pipe.read(100)
+            if len(buf) < 5:
+                print "[ERROR] Not found py-afl-fuzz."
+                os._exit(-1)
+            if buf[-1] == '\n':
+                buf = buf[:-1]
+            self.aflPath = buf
+            pipe.close()
+        except Exception, e:
+            print "[Exception] %s" % str(e)
+            os._exit(-1)
 
         if not os.path.exists(self.aflPath):
             print "[ERROR] Not found '%s'." % self.aflPath
