@@ -139,6 +139,12 @@ class AFL(object):
 
             # patch core_pattern
             os.system("echo core >/proc/sys/kernel/core_pattern")
+            pipe = os.popen("cat /proc/sys/kernel/core_pattern", "r")
+            buf = pipe.read(100)
+            pipe.close()
+            if buf[0:4] != "core":
+                print "[ERROR] Failed execute command 'echo core >/proc/sys/kernel/core_pattern'."
+                os._exit(-1)
 
             AFL.needDelTmp = False
         else:
