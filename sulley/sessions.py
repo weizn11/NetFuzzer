@@ -564,10 +564,12 @@ class session ():
 
     ####################################################################################################################
     def transmit (self, sock, block, target, _data=None):
-        sendFlag = True
-        againMutate = False
-        reconn = False
-        normal = True
+        sendFlag        = True
+        againMutate     = False
+        reconn          = True
+        normal          = True
+        crash           = False
+        report          = None
 
         #若没有传入指定的发送数据，则从block中生成发送数据。
         try:
@@ -619,6 +621,7 @@ class session ():
                 except Exception, inst:
                     self.logger.error("Socket error, send: %s" % inst)
                     try:
+                        normal = False
                         # 立刻通过ping测试目标设备是否crash
                         if self.pinger_threshold:
                             if target.detect_crash_via_ping():
@@ -627,7 +630,6 @@ class session ():
                                     os._exit(0)
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
-                        normal = False
                     except Exception, e:
                         self.logger.critical("send_failed_callback() error. Exception: %s" % str(e))
                         raise e
@@ -637,6 +639,7 @@ class session ():
                 except Exception, e:
                     self.logger.critical("Custom send error. Exception: %s" % str(e))
                     try:
+                        normal = False
                         # 立刻通过ping测试目标设备是否crash
                         if self.pinger_threshold:
                             if target.detect_crash_via_ping():
@@ -645,7 +648,6 @@ class session ():
                                     os._exit(0)
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
-                        normal = False
                     except Exception, e:
                         self.logger.critical("send_failed_callback() error. Exception: %s" % str(e))
                         raise e
@@ -658,6 +660,7 @@ class session ():
                 except Exception, inst:
                     self.logger.critical("Send error. Exception: %s" % inst)
                     try:
+                        normal = False
                         #立刻通过ping测试目标设备是否crash
                         if self.pinger_threshold:
                             if target.detect_crash_via_ping():
@@ -666,7 +669,6 @@ class session ():
                                     os._exit(0)
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
-                        normal = False
                     except Exception, e:
                         self.logger.critical("send_failed_callback() error. Exception: %s" % str(e))
                         raise e
