@@ -195,7 +195,7 @@ class AFL(object):
             os.dup2(nul, sys.stdin.fileno())
 
             try:
-                os.execl(self.aflPath, self.aflPath, "-n", "-t", "999999", "-i", self.corpusDir,
+                os.execl(self.aflPath, self.aflPath, "-n", "-t", "99999999", "-i", self.corpusDir,
                          "-o", "out_" + self.name, "--", self.pythonPath, os.getcwd() + "/sulley/AFLInterface.py", "@@")
             except Exception, e:
                 print "[ERROR] Start 'py-afl-fuzz' failed. Exception: %s" % str(e)
