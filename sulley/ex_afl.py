@@ -127,11 +127,18 @@ class AFL(object):
         if AFL.needDelTmp:
             #delete old conf file
             if os.path.exists(".tmp_aflConf"):
-                try:
-                    os.remove(".tmp_aflConf")
-                except Exception, e:
-                    print "[ERROR] Remove file '.tmp_aflConf' error. Exception: %s" % str(e)
-                    return False
+                while True:
+                    inBuf = raw_input("Remove file '.tmp_aflConf'?")
+                    inBuf.lower()
+                    if inBuf == "y":
+                        try:
+                            os.remove(".tmp_aflConf")
+                            break
+                        except Exception, e:
+                            print "[ERROR] Remove file '.tmp_aflConf' error. Exception: %s" % str(e)
+                            return False
+                    elif inBuf == "n":
+                        break
 
             # delete debug log
             if os.path.exists("debug.txt"):
