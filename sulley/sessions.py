@@ -619,9 +619,9 @@ class session ():
                 try:
                     sock.send(data)
                 except Exception, inst:
+                    normal = False
                     self.logger.error("Socket error, send: %s" % inst)
                     try:
-                        normal = False
                         # 立刻通过ping测试目标设备是否crash
                         if self.pinger_threshold:
                             if target.detect_crash_via_ping():
@@ -637,9 +637,9 @@ class session ():
                 try:
                     sock.send(data)
                 except Exception, e:
+                    normal = False
                     self.logger.critical("Custom send error. Exception: %s" % str(e))
                     try:
-                        normal = False
                         # 立刻通过ping测试目标设备是否crash
                         if self.pinger_threshold:
                             if target.detect_crash_via_ping():
@@ -658,9 +658,9 @@ class session ():
                     else:
                         sock.sendto(data, (target.host, target.port))
                 except Exception, inst:
+                    normal = False
                     self.logger.critical("Send error. Exception: %s" % inst)
                     try:
-                        normal = False
                         #立刻通过ping测试目标设备是否crash
                         if self.pinger_threshold:
                             if target.detect_crash_via_ping():
@@ -705,6 +705,7 @@ class session ():
                     #返回重发和重新对此步骤生成测试用例的标识。
                     (sendFlag, againMutate) = self.post_send(sock, data, self.fuzz_store_list)
                 except Exception, e:
+                    self.logger.critical("post_send() error. Exception: %s" % str(e))
                     # 立刻通过ping测试目标设备是否crash
                     if self.pinger_threshold:
                         if target.detect_crash_via_ping():
@@ -713,8 +714,6 @@ class session ():
                                 os._exit(0)
                             else:
                                 return (reconn, normal, againMutate)
-                    self.logger.critical("post_send() error. Exception: %s" % str(e))
-                    raise e
 
         return (reconn, normal, againMutate)
 
