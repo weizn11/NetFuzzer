@@ -462,10 +462,14 @@ class session ():
                 try:
                     (reconn, normal, againMutate) = self.transmit(sock, f_block, f_target, data)  #send fuzzing packet
                     data = None
-                    if reconn and sock:
-                        sock.close()
-                        sock = None
-                    elif not normal and not reconn:
+                    if not self.layer2 and not self.custom:
+                        if normal is False:
+                            sock.close()
+                            sock = None
+                        if reconn and sock is not None:
+                            sock.close()
+                            sock = None
+                    if normal is False and reconn is False:
                         self.logger.info("disconnect!")
                         os._exit(0)
                 except Exception, e:
@@ -475,7 +479,7 @@ class session ():
                 break  #don't need resend
 
             # done with the socket.
-            if self.layer2 is False and sock is not None and self.keep_alive is False:
+            if not self.layer2 and not self.custom and sock is not None and not self.keep_alive:
                 sock.close()
                 sock = None
 
