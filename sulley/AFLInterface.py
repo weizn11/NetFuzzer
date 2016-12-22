@@ -96,7 +96,7 @@ def open_pipe():
 
 ##############################################################################
 #start at here
-while afl.loop(999999):
+while afl.loop(99999999):
     #open write pipe
     if pipeAlive is False:
         if open_pipe() is False:
