@@ -566,7 +566,7 @@ class session ():
     def transmit (self, sock, block, target, _data=None):
         sendFlag        = True
         againMutate     = False
-        reconn          = True
+        reconn          = False
         normal          = True
         crash           = False
         report          = None
@@ -712,8 +712,6 @@ class session ():
                             # 目标crash
                             if self.detect_target_crash_callback(self.fuzz_store_list) is False:
                                 os._exit(0)
-                            else:
-                                return (reconn, normal, againMutate)
 
         return (reconn, normal, againMutate)
 
