@@ -67,6 +67,8 @@ def remove_corpus(dir):
 class AFL(object):
     needDelTmp = True
     def __init__(self, name, corpusDir):
+        super(AFL, self).__init__()
+
         self.name = name
         self.corpusDir = os.getcwd() + "/" + corpusDir
         self.wrPipe = None
@@ -128,14 +130,15 @@ class AFL(object):
             #delete old conf file
             if os.path.exists(".tmp_aflConf"):
                 while True:
-                    inBuf = raw_input("Remove file '.tmp_aflConf'?")
+                    inBuf = raw_input("Remove all temp file?[Y/N]")
                     inBuf.lower()
                     if inBuf == "y":
                         try:
-                            os.remove(".tmp_aflConf")
+                            os.system("rm -rf .tmp_*")
+                            os.system("rm -rf out_*")
                             break
                         except Exception, e:
-                            print "[ERROR] Remove file '.tmp_aflConf' error. Exception: %s" % str(e)
+                            print "[ERROR] Remove temp file error. Exception: %s" % str(e)
                             return False
                     elif inBuf == "n":
                         break

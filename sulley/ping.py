@@ -89,6 +89,7 @@ class Pinger(object):
         """
         Returns the delay (in seconds) or none on timeout.
         """
+        sock = None
         icmp = socket.getprotobyname("icmp")
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, icmp)
@@ -99,9 +100,9 @@ class Pinger(object):
                 raise socket.error(msg)
         except Exception, e:
             print "Exception: %s" % (e)
+            raise e
 
         my_ID = os.getpid() & 0xFFFF
-
         self.send_ping(sock, my_ID)
         delay = self.receive_ping(sock, my_ID, self.timeout)
         sock.close()

@@ -13,6 +13,7 @@ import ping
 import SniffThread
 import protocol
 import signal
+import port_scanner
 
 ########################################################################################################################
 class target:
@@ -29,10 +30,12 @@ class target:
         '''
 
         #Fuzz目标地址
-        self.host      = host
-        self.port      = port
+        self.host        = host
+        self.port        = port
 
-        self.pinger = ping.Pinger(self.host)
+        self.pinger      = ping.Pinger(self.host)
+        self.tcpScanner  = port_scanner.TCPScanner(self.host, self.port)
+        self.udpScanner  = port_scanner.UDPScaner(self.host, self.port)
 
         #进程监视器
         self.procmon           = None   #type : pedrpc.client()
@@ -76,12 +79,18 @@ class target:
         self.procmon.ex_send(debugCmd)
 
     def detect_crash_via_ping(self):
-        for idx in range(0, 5):
+        for idx in range(0, 7):
             if self.pinger.ping() is None:
                 continue
             else:
                 return False
         return True
+
+    def detect_crash_via_tcp_port(self):
+        return self.tcpScanner.scan()
+
+    def detect_crash_via_udp_port(self):
+        return self.udpScanner.scan()
 
 ########################################################################################################################
 class custom_sock():
@@ -116,7 +125,10 @@ class session ():
                   keep_alive=False,         #是否保持socket连接
                   send_sleep_time=0.0,      #发送每个测试用例的时间间隔
                   fuzz_store_limit=None,    #存储生成的fuzz数据最大数量
-                  pinger_threshold=None     #是否开启ping检测crash
+                  pinger_threshold=None,    #是否开启ping检测crash
+                  tcpScan_threshold=None,   #是否开启tcp scan检测crash
+                  udpScan_threshold=None,   #是否开启udp scan检测crash
+                  cusDect_threshold=None    #是否开启自定义callback函数检测crash
                 ):
 
         log_level=logging.INFO
@@ -126,7 +138,6 @@ class session ():
         self.loop_sleep_time     = loop_sleep_time
         self.send_sleep_time     = send_sleep_time
         self.proto               = proto.lower()
-        self.ssl                 = False
         self.timeout             = sock_timeout
         self.total_mutant_index  = 0
         self.fuzz_targets        = []
@@ -153,16 +164,19 @@ class session ():
         self.cur_mutate_frame    = None
         self.fuzz_store_list     = []
         self.fuzz_store_limit    = fuzz_store_limit
-        self.fuzz_send_count    = 0
+        self.fuzz_send_count     = 0
+
         self.pinger_threshold    = pinger_threshold
+        self.tcpScan_threshold   = tcpScan_threshold
+        self.udpScan_threshold   = udpScan_threshold
+        self.cusDect_threshold   = cusDect_threshold
 
         #创建网络监视器
         if self.sniff_switch:
             try:
                 self.sniff_thread = SniffThread.Sniffer(self.sniff_iface,self.sniff_filter,self.sniff_stop_filter,self.sniff_timeout)
             except Exception, e:
-                print "sniff thread create failed.\nTrace info:"
-                print e
+                print "sniff thread create failed. Exception: %s" % str(e)
                 os._exit(0)
 
         #初始化日志
@@ -184,10 +198,6 @@ class session ():
         #判断用户使用的连接协议
         if self.proto == "tcp":
             self.proto = socket.SOCK_STREAM
-
-        elif self.proto == "ssl":
-            self.proto = socket.SOCK_STREAM
-            self.ssl   = True
 
         elif self.proto == "udp":
             self.proto = socket.SOCK_DGRAM
@@ -291,12 +301,22 @@ class session ():
         '''
         return False
 
-    def detect_target_crash_callback(self, fuzzStoreList):
+    def detected_target_crash_callback(self, fuzzStoreList):
         '''
-        @desc: Pinger已捕获到crash信息
+        @desc: Net monitor已捕获到crash信息
         @type: list
         @param fuzzStoreList: 存储的fuzz数据
         @return: (boolean)  1.True:继续进行接下来的流程 False:退出程序
+        '''
+        return False
+
+    def custom_detect_crash_callback(self, sock, target):
+        '''
+        @type socket
+        @param sock:    连接目标的socket
+        @type session.target()
+        @param target:  Fuzz目标
+        @return: (boolean) 1.True:检测到目标crash 2.False:目标未crash
         '''
         return False
 
@@ -445,12 +465,8 @@ class session ():
                             error_handler(e, "failed connecting on socket.", sock)
                             sock = None
                             try:
-                                # 立刻通过ping测试目标设备是否crash
-                                if self.pinger_threshold:
-                                    if f_target.detect_crash_via_ping():
-                                        # 目标crash
-                                        if self.detect_target_crash_callback(self.fuzz_store_list) is False:
-                                            os._exit(0)
+                                # 立刻测试目标设备是否crash
+                                self.detect_crash(sock, f_target, True)
                                 reconn = self.connect_failed_callback(sock, f_target)
                                 if not reconn:
                                     os._exit(0)
@@ -563,6 +579,51 @@ class session ():
         return data
 
     ####################################################################################################################
+    def detect_crash(self, sock, target, prom):
+        '''
+        :param target:
+        :param prom: 立刻检测
+        :return: 1.True:目标crash 2.False
+        '''
+        # 通过monitor测试目标设备是否crash
+        if self.cusDect_threshold:
+            if self.fuzz_send_count % self.cusDect_threshold == 0 or prom is True:
+                if self.custom_detect_crash_callback(sock, target):
+                    # 目标crash
+                    if self.detected_target_crash_callback(self.fuzz_store_list) is False:
+                        os._exit(0)
+                    else:
+                        return True
+
+        if self.pinger_threshold:
+            if self.fuzz_send_count % self.pinger_threshold == 0 or prom is True:
+                if target.detect_crash_via_ping():
+                    # 目标crash
+                    if self.detected_target_crash_callback(self.fuzz_store_list) is False:
+                        os._exit(0)
+                    else:
+                        return True
+
+        if self.tcpScan_threshold:
+            if self.fuzz_send_count % self.tcpScan_threshold == 0 or prom is True:
+                if target.detect_crash_via_tcp_port():
+                    # 目标crash
+                    if self.detected_target_crash_callback(self.fuzz_store_list) is False:
+                        os._exit(0)
+                    else:
+                        return True
+
+        if self.udpScan_threshold:
+            if self.fuzz_send_count % self.udpScan_threshold == 0 or prom is True:
+                if target.detect_crash_via_udp_port():
+                    # 目标crash
+                    if self.detected_target_crash_callback(self.fuzz_store_list) is False:
+                        os._exit(0)
+                    else:
+                        return True
+        return False
+
+    ####################################################################################################################
     def transmit (self, sock, block, target, _data=None):
         sendFlag        = True
         againMutate     = False
@@ -599,12 +660,8 @@ class session ():
             try:
                 data = self.pre_send(sock, block, data)
             except Exception, e:
-                # 立刻通过ping测试目标设备是否crash
-                if self.pinger_threshold:
-                    if target.detect_crash_via_ping():
-                        # 目标crash
-                        if self.detect_target_crash_callback(self.fuzz_store_list) is False:
-                            os._exit(0)
+                #立刻测试目标设备是否crash
+                self.detect_crash(sock, target, True)
                 self.logger.critical("pre_send_callback() error. Exception: %s" % str(e))
                 raise e
 
@@ -622,12 +679,8 @@ class session ():
                     normal = False
                     self.logger.error("Socket error, send: %s" % inst)
                     try:
-                        # 立刻通过ping测试目标设备是否crash
-                        if self.pinger_threshold:
-                            if target.detect_crash_via_ping():
-                                # 目标crash
-                                if self.detect_target_crash_callback(self.fuzz_store_list) is False:
-                                    os._exit(0)
+                        # 立刻测试目标设备是否crash
+                        self.detect_crash(sock, target, True)
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
                     except Exception, e:
@@ -640,12 +693,8 @@ class session ():
                     normal = False
                     self.logger.critical("Custom send error. Exception: %s" % str(e))
                     try:
-                        # 立刻通过ping测试目标设备是否crash
-                        if self.pinger_threshold:
-                            if target.detect_crash_via_ping():
-                                # 目标crash
-                                if self.detect_target_crash_callback(self.fuzz_store_list) is False:
-                                    os._exit(0)
+                        # 立刻测试目标设备是否crash
+                        self.detect_crash(sock, target, True)
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
                     except Exception, e:
@@ -661,27 +710,17 @@ class session ():
                     normal = False
                     self.logger.critical("Send error. Exception: %s" % inst)
                     try:
-                        #立刻通过ping测试目标设备是否crash
-                        if self.pinger_threshold:
-                            if target.detect_crash_via_ping():
-                                # 目标crash
-                                if self.detect_target_crash_callback(self.fuzz_store_list) is False:
-                                    os._exit(0)
+                        # 立刻测试目标设备是否crash
+                        self.detect_crash(sock, target, True)
                         #发送失败的回调函数，返回重连标识。
                         reconn = self.send_failed_callback(target, data)
                     except Exception, e:
                         self.logger.critical("send_failed_callback() error. Exception: %s" % str(e))
                         raise e
 
-            #通过ping测试目标设备是否crash
-            if self.pinger_threshold:
-                self.fuzz_send_count += 1
-                if self.fuzz_send_count >= self.pinger_threshold:
-                    self.fuzz_send_count = 0
-                    if target.detect_crash_via_ping():
-                        #目标crash
-                        if self.detect_target_crash_callback(self.fuzz_store_list) is False:
-                            os._exit(0)
+            self.fuzz_send_count += 1
+            #通过monitor测试目标设备是否crash
+            self.detect_crash(sock, target, False)
 
             #从进程监视器中获取进程信息
             if target.procmon:
@@ -706,12 +745,8 @@ class session ():
                     (sendFlag, againMutate) = self.post_send(sock, data, self.fuzz_store_list)
                 except Exception, e:
                     self.logger.critical("post_send() error. Exception: %s" % str(e))
-                    # 立刻通过ping测试目标设备是否crash
-                    if self.pinger_threshold:
-                        if target.detect_crash_via_ping():
-                            # 目标crash
-                            if self.detect_target_crash_callback(self.fuzz_store_list) is False:
-                                os._exit(0)
+                    # 立刻测试目标设备是否crash
+                    self.detect_crash(sock, target, True)
 
         return (reconn, normal, againMutate)
 
