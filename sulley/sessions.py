@@ -87,10 +87,14 @@ class target:
         return True
 
     def detect_crash_via_tcp_port(self):
-        return self.tcpScanner.scan()
+        if self.tcpScanner.scan():
+            return False
+        return True
 
     def detect_crash_via_udp_port(self):
-        return self.udpScanner.scan()
+        if self.udpScanner.scan():
+            return False
+        return True
 
 ########################################################################################################################
 class custom_sock():
