@@ -113,7 +113,7 @@ class Fuzzer(object):
 if __name__ == '__main__':
     fuzz = Fuzzer()
     sess = sessions.session(proto="udp", keep_alive=False,
-            loop_sleep_time=0.0001, fuzz_store_limit=10000, pinger_threshold=1000, sock_timeout=2)
+            loop_sleep_time=0.0001, fuzz_store_limit=1000, pinger_threshold=100, sock_timeout=2)
 
     sess.pre_send_callback                    = fuzz.pre_send_callback
     sess.detected_target_crash_callback       = fuzz.detected_target_crash_callback
