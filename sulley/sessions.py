@@ -411,7 +411,7 @@ class session ():
 
             #设置block
             try:
-                self.pre_mutate_callback(self)
+                self.pre_mutate_callback(f_block)
             except Exception, e:
                 self.logger.critical("pre_mutate_callback() error. Exception: %s" % str(e))
                 raise e
