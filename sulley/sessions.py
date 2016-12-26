@@ -335,8 +335,8 @@ class session ():
         '''
         pass
 
-    def sigint_handler(sig, frame):
-        print "recv sigint"
+    def sigint_handler(self, sig, frame):
+        self.logger.info("Recv sigint signal, the process will exit.")
         os._exit(0)
 
     def fuzz (self):
@@ -350,6 +350,13 @@ class session ():
 
         f_target = self.fuzz_targets[0]
         signal.signal(signal.SIGINT, self.sigint_handler)
+
+        print "Press CTRL/C to cancel in ",
+        for i in range(3):
+            print str(3 - i) + " ",
+            sys.stdout.flush()
+            time.sleep(1)
+        print "\n"
 
         #启动网络监视器
         if self.sniff_switch:
@@ -365,13 +372,8 @@ class session ():
         #启动进程监视器
         f_target.procmon_start()
 
+        print "Wait for start..."
         self.start_wait_callback()
-        print "Press CTRL/C to cancel in ",
-        for i in range(3):
-            print str(3 - i) + " ",
-            sys.stdout.flush()
-            time.sleep(1)
-        print "\n"
         self.logger.info("Start fuzzing...")
 
         # loop through all possible mutations of the fuzz block.
