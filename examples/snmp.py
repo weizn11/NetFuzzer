@@ -43,9 +43,6 @@ class Fuzzer(object):
 		self.mutex = threading.Lock()
 		self.pkt_file = open("snmp_2", "w")
 
-	def block_mutate_callback(self, block):
-		pass
-
 	def pre_send_callback(self, sock, block, data):
 		bindings_length = 0
 		bindings = ""
@@ -109,83 +106,20 @@ class Fuzzer(object):
 		print "SNMP Length:" + str(len(self.data))
 		return self.data
 
-	def fetch_proc_crash_callback(self, report):
-		self.pkt_file.write(binascii.b2a_hex(data))
-		self.pkt_file.write("\n")
-		self.pkt_file.flush()
+	def detected_target_crash_callback(self, fuzzStoreList):
+		dump_fuzz_store_list("snmp_crash.txt", fuzzStoreList)
 		return False
-
-	def post_send_callback(self, sock, data):
-		timestamp = 0
-		resendCount = 0
-
-		self.pkt_file.write(binascii.b2a_hex(data))
-		self.pkt_file.write("\n")
-		self.pkt_file.flush()
-
-		while True:
-			self.icmp = False
-			packet = IP(dst=self.target.host) / ICMP()
-			send(packet, verbose=False)
-
-			timestamp = time.time()
-			while True:
-				if self.mutex.acquire():
-					if self.icmp:
-						self.mutex.release()
-						return (False, False)
-					else:
-						self.mutex.release()
-						if time.time() - timestamp >= 1:
-							break
-
-			if resendCount >= 5:
-				print "target crash!"
-				self.pkt_file.close()
-				os._exit(0)
-			resendCount += 1
-			print "resend icmp."
-
-	def packet_handler_callback(self, pkt):
-		try:
-			if pkt[IP].src == self.target.host:
-				if pkt[ICMP]:
-					if self.mutex.acquire():
-						self.icmp = True
-						self.mutex.release()
-				else:
-					if self.mutex.acquire():
-						self.icmp = False
-						self.mutex.release()
-		except:
-			if self.mutex.acquire():
-				self.icmp = False
-				self.mutex.release()
 
 if __name__ == '__main__':
     fuzz = Fuzzer()
-    sess = sessions.session(proto="udp", keep_alive=False, loop_sleep_time=0.0, sniff_switch=True, sniff_filter="icmp")
+    sess = sessions.session(proto="udp", keep_alive=False,
+            loop_sleep_time=0.0001, fuzz_store_limit=10000, pinger_threshold=1000, sock_timeout=2)
 
-    sess.block_mutate_callback = fuzz.block_mutate_callback
-    sess.pre_send_callback = fuzz.pre_send_callback
-    sess.fetch_proc_crash_callback = fuzz.fetch_proc_crash_callback
-    sess.post_send_callback = fuzz.post_send_callback
-    sess.packet_handler_callback = fuzz.packet_handler_callback
+    sess.pre_send_callback                    = fuzz.pre_send_callback
+    sess.detected_target_crash_callback       = fuzz.detected_target_crash_callback
 
-    target = sessions.target("10.0.0.37", 161)
+    target = sessions.target("10.0.0.34", 161)
     fuzz.target = target
-
-    target.procmon = pedrpc.client("127.0.0.1", 7437)
-    target.procmon_options = \
-    {
-        "path" : "/usr/bin/gdb",
-        "cmdline" : [],
-        "stdin" : ["target remote 192.168.56.1:7777", "i r", "c"],
-        "crash_cmd" : ["bt","info reg"],
-        "continue_spacing" : 0,
-        "crash_code" : ["(gdb)"],
-        "match_logic" : 1
-    }
 
     sess.add_block(s_get("SNMP_Request"))
     sess.add_target(target)

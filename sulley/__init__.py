@@ -7,6 +7,7 @@ import sulley.sex
 import sulley.sessions
 import sulley.utils
 import sulley.ex_afl
+import binascii
 
 BIG_ENDIAN      = ">"
 LITTLE_ENDIAN   = "<"
@@ -15,6 +16,23 @@ LITTLE_ENDIAN   = "<"
 ########################################################################################################################
 ### REQUEST MANAGEMENT
 ########################################################################################################################
+
+def dump_fuzz_store_list(outName, fuzzStoreList):
+    try:
+        file = open(outName, "w")
+    except Exception, e:
+        print "[ERROR] Create file failed. Exception: %s" % str(e)
+        return False
+    try:
+        for case in fuzzStoreList:
+            file.write(binascii.b2a_hex(case) + "\n")
+            file.flush()
+    except Exception, e:
+        print "[ERROR] Write file failed. Exception: %s" % str(e)
+        file.close()
+        return False
+    file.close()
+    return True
 
 def s_get (name=None):
     '''
