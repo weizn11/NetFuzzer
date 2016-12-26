@@ -336,6 +336,7 @@ class session ():
         pass
 
     def sigint_handler(self, sig, frame):
+        print ""
         self.logger.info("Recv sigint signal, the process will exit.")
         os._exit(0)
 
@@ -372,7 +373,7 @@ class session ():
         #启动进程监视器
         f_target.procmon_start()
 
-        print "Wait for start..."
+        self.logger.info("Wait for start...")
         self.start_wait_callback()
         self.logger.info("Start fuzzing...")
 
