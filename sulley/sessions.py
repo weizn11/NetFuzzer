@@ -390,7 +390,7 @@ class session ():
                 self.cur_mutate_frame = self.set_mutate_frame_callback()
             except Exception, e:
                 self.logger.critical("set_mutate_frame_callback() error. Exception: %s" % str(e))
-                raise e
+                os._exit(-1)
             if self.cur_mutate_frame not in ("sulley", "afl"):
                 self.logger.critical("cur_mutate_frame does not seem to be valid. value: %s" % self.cur_mutate_frame)
                 raise Exception("[ERROR] cur_mutate_frame does not seem to be valid. value: %s" % self.cur_mutate_frame)
@@ -416,7 +416,7 @@ class session ():
                 self.pre_mutate_callback(f_block)
             except Exception, e:
                 self.logger.critical("pre_mutate_callback() error. Exception: %s" % str(e))
-                raise e
+                os._exit(-1)
 
             #生成测试数据
             try:
@@ -425,14 +425,14 @@ class session ():
                     os._exit(-1)
             except Exception, e:
                 self.logger.critical("Block mutate error. Exception: %s" % str(e))
-                raise e
+                os._exit(-1)
 
             #成功获取到新的测试用例
             try:
                 self.post_mutate_callback(f_block)
             except Exception, e:
                 self.logger.critical("post_mutate_callback() error. Exception: %s" % str(e))
-                raise e
+                os._exit(-1)
 
             def error_handler (e, msg, sock=None):
                 if not self.layer2 and not self.custom and sock:
