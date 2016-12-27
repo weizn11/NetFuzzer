@@ -869,7 +869,7 @@ class byte (bit_field):
         if type(value) not in [int, long, list, tuple]:
             value       = struct.unpack(endian + "B", value)[0]
 
-        bit_field.__init__(self, value, 8, endian, format, signed, val_range, fuzzable, name)
+        bit_field.__init__(self, value, 8, endian, format, signed, val_range, fuzzable, False, name)
 
 
 ########################################################################################################################
