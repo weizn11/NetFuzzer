@@ -398,11 +398,9 @@ class session ():
             #检测索引越界
             if self.cur_mutate_frame == "sulley":
                 if blockIndex >= len(self.fuzz_blocks):
-                    self.logger.info("Reset fuzz blocks list.")
                     blockIndex = 0
             else:
                 if aflBlockIndex >= len(self.afl_fuzz_blocks):
-                    self.logger.info("Reset afl fuzz blocks list.")
                     aflBlockIndex = 0
 
             #从数据列表中取出一个进行测试
