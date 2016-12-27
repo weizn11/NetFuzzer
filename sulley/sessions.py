@@ -379,6 +379,12 @@ class session ():
 
         # loop through all possible mutations of the fuzz block.
         while True:
+            # 当前fuzz计数
+            if newMutant:
+                self.total_mutant_index += 1
+                self.logger.info("Fuzzing %d" % (self.total_mutant_index))
+                newMutant = False
+
             #指定fuzz数据生成框架
             try:
                 self.cur_mutate_frame = self.set_mutate_frame_callback()
@@ -398,12 +404,6 @@ class session ():
                 if aflBlockIndex >= len(self.afl_fuzz_blocks):
                     self.logger.info("Reset afl fuzz blocks list.")
                     aflBlockIndex = 0
-
-            #当前fuzz计数
-            if newMutant:
-                self.total_mutant_index += 1
-                self.logger.info("Start fuzzing %d" % (self.total_mutant_index))
-                newMutant = False
 
             #从数据列表中取出一个进行测试
             if self.cur_mutate_frame == "sulley":
@@ -653,6 +653,7 @@ class session ():
 
         while sendFlag:
             sendFlag = False
+            normal = True
 
             #如果UDP数据包大于65507，则进行截断。
             if self.proto == socket.SOCK_DGRAM:
@@ -748,14 +749,13 @@ class session ():
                         self.logger.critical("fetch_proc_crash_callback() error. Exception: %s" % str(e))
 
             #发送结束后的回调函数
-            if normal:
-                try:
-                    #返回重发和重新对此步骤生成测试用例的标识。
-                    (sendFlag, againMutate) = self.post_send(sock, data, self.fuzz_store_list)
-                except Exception, e:
-                    self.logger.critical("post_send() error. Exception: %s" % str(e))
-                    # 立刻测试目标设备是否crash
-                    self.detect_crash(sock, target, True)
+            try:
+                #返回重发和重新对此步骤生成测试用例的标识。
+                (sendFlag, againMutate) = self.post_send(sock, data, self.fuzz_store_list)
+            except Exception, e:
+                self.logger.critical("post_send() error. Exception: %s" % str(e))
+                # 立刻测试目标设备是否crash
+                self.detect_crash(sock, target, True)
 
         return (reconn, normal, againMutate)
 
