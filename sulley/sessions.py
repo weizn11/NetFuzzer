@@ -392,9 +392,11 @@ class session ():
             #检测索引越界
             if self.cur_mutate_frame == "sulley":
                 if blockIndex >= len(self.fuzz_blocks):
+                    self.logger.info("Reset fuzz blocks list.")
                     blockIndex = 0
             else:
                 if aflBlockIndex >= len(self.afl_fuzz_blocks):
+                    self.logger.info("Reset afl fuzz blocks list.")
                     aflBlockIndex = 0
 
             #当前fuzz计数
@@ -506,7 +508,7 @@ class session ():
                 sock.close()
                 sock = None
 
-            if not againMutate:
+            if againMutate is False:
                 if self.cur_mutate_frame == "sulley":
                     blockIndex += 1
                 else:
