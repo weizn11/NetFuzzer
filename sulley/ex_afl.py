@@ -131,7 +131,7 @@ class AFL(object):
             if os.path.exists(".tmp_aflConf"):
                 while True:
                     inBuf = raw_input("Remove all temp file?[Y/N]")
-                    inBuf.lower()
+                    inBuf = inBuf.lower()
                     if inBuf == "y":
                         try:
                             os.system("rm -rf .tmp_*")
