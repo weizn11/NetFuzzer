@@ -638,8 +638,6 @@ class session ():
         againMutate     = False
         reconn          = False
         normal          = True
-        crash           = False
-        report          = None
 
         #若没有传入指定的发送数据，则从block中生成发送数据。
         try:
@@ -654,6 +652,10 @@ class session ():
         while sendFlag:
             sendFlag = False
             normal = True
+            againMutate = False
+            reconn = False
+            crash = False
+            report = None
 
             #如果UDP数据包大于65507，则进行截断。
             if self.proto == socket.SOCK_DGRAM:
