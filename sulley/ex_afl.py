@@ -155,33 +155,33 @@ class AFL(object):
             if buf[0:4] != "core":
                 print "[ERROR] Failed execute command 'echo core >/proc/sys/kernel/core_pattern'."
                 os._exit(-1)
-
             AFL.needDelTmp = False
-        else:
-            try:
-                file = open(".tmp_aflConf", "r")
-            except Exception, e:
-                print "[ERROR] Open file '.tmp_aflConf' error. Exception: %s" % str(e)
-                return False
-            try:
-                lineList = file.readlines()
-                file.close()
-            except Exception, e:
-                print "[ERROR] readlines error. Exception: %s" % str(e)
-                file.close()
-                return False
-            try:
-                for line in lineList:
-                    if line[-1] == '\n':
-                        line = line[:-1]
-                    wordList = line.split(":")
 
-                    if wordList[1] == self.name:
-                        print "[ERROR] The '%s' object name already exists." % self.name
-                        return False
-            except Exception, e:
-                print "[ERROR] Parse file error. Exception: %s" % str(e)
-                return False
+        #detect repeat name
+        try:
+            file = open(".tmp_aflConf", "r")
+        except Exception, e:
+            print "[ERROR] Open file '.tmp_aflConf' error. Exception: %s" % str(e)
+            return False
+        try:
+            lineList = file.readlines()
+            file.close()
+        except Exception, e:
+            print "[ERROR] readlines error. Exception: %s" % str(e)
+            file.close()
+            return False
+        try:
+            for line in lineList:
+                if line[-1] == '\n':
+                    line = line[:-1]
+                wordList = line.split(":")
+
+                if wordList[1] == self.name:
+                    print "[ERROR] The '%s' object name already exists." % self.name
+                    return False
+        except Exception, e:
+            print "[ERROR] Parse file error. Exception: %s" % str(e)
+            return False
 
         #delete output directory
         if os.path.exists("out_" + self.name):

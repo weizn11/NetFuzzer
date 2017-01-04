@@ -677,8 +677,9 @@ class session ():
 
             #存储fuzz数据
             if self.fuzz_store_limit is not None and self.fuzz_store_limit > 0:
-                if len(self.fuzz_store_list) >= self.fuzz_store_limit:
-                    self.fuzz_store_list.pop(0)
+                if len(self.fuzz_store_list) >= self.fuzz_store_limit + self.fuzz_store_limit / 3:
+                    swapList = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
+                    self.fuzz_store_list = swapList
                 self.fuzz_store_list.append(data)
 
             #发送fuzz数据包
