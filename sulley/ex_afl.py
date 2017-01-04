@@ -160,28 +160,27 @@ class AFL(object):
         #detect repeat name
         try:
             file = open(".tmp_aflConf", "r")
-        except Exception, e:
-            print "[ERROR] Open file '.tmp_aflConf' error. Exception: %s" % str(e)
-            return False
-        try:
-            lineList = file.readlines()
-            file.close()
-        except Exception, e:
-            print "[ERROR] readlines error. Exception: %s" % str(e)
-            file.close()
-            return False
-        try:
-            for line in lineList:
-                if line[-1] == '\n':
-                    line = line[:-1]
-                wordList = line.split(":")
+            try:
+                lineList = file.readlines()
+                file.close()
+            except Exception, e:
+                print "[ERROR] readlines error. Exception: %s" % str(e)
+                file.close()
+                return False
+            try:
+                for line in lineList:
+                    if line[-1] == '\n':
+                        line = line[:-1]
+                    wordList = line.split(":")
 
-                if wordList[1] == self.name:
-                    print "[ERROR] The '%s' object name already exists." % self.name
-                    return False
+                    if wordList[1] == self.name:
+                        print "[ERROR] The '%s' object name already exists." % self.name
+                        return False
+            except Exception, e:
+                print "[ERROR] Parse file error. Exception: %s" % str(e)
+                return False
         except Exception, e:
-            print "[ERROR] Parse file error. Exception: %s" % str(e)
-            return False
+            print "[INFO] No such file: '.tmp_aflConf'"
 
         #delete output directory
         if os.path.exists("out_" + self.name):
