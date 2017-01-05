@@ -499,7 +499,8 @@ class session ():
                     error_handler(e, "failed transmitting fuzz block.", sock)
                     sock = None
                     continue
-                break  #don't need resend
+                if not reconn:
+                    break  #don't need resend
 
             # done with the socket.
             if not self.layer2 and not self.custom and sock is not None and not self.keep_alive:
@@ -597,6 +598,9 @@ class session ():
             if self.fuzz_send_count % self.cusDect_threshold == 0 or prom is True:
                 if self.custom_detect_crash_callback(sock, target):
                     # 目标crash
+                    if len(self.fuzz_store_list) > self.fuzz_store_limit:
+                        swapList = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
+                        self.fuzz_store_list = swapList
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
                         os._exit(0)
                     else:
@@ -606,6 +610,9 @@ class session ():
             if self.fuzz_send_count % self.pinger_threshold == 0 or prom is True:
                 if target.detect_crash_via_ping():
                     # 目标crash
+                    if len(self.fuzz_store_list) > self.fuzz_store_limit:
+                        swapList = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
+                        self.fuzz_store_list = swapList
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
                         os._exit(0)
                     else:
@@ -615,6 +622,9 @@ class session ():
             if self.fuzz_send_count % self.tcpScan_threshold == 0 or prom is True:
                 if target.detect_crash_via_tcp_port():
                     # 目标crash
+                    if len(self.fuzz_store_list) > self.fuzz_store_limit:
+                        swapList = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
+                        self.fuzz_store_list = swapList
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
                         os._exit(0)
                     else:
@@ -624,6 +634,9 @@ class session ():
             if self.fuzz_send_count % self.udpScan_threshold == 0 or prom is True:
                 if target.detect_crash_via_udp_port():
                     # 目标crash
+                    if len(self.fuzz_store_list) > self.fuzz_store_limit:
+                        swapList = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
+                        self.fuzz_store_list = swapList
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
                         os._exit(0)
                     else:
