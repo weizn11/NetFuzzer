@@ -485,7 +485,7 @@ class session ():
                 try:
                     (reconn, normal, againMutate) = self.transmit(sock, f_block, f_target, data)  #send fuzzing packet
                     data = None
-                    if not self.layer2 and not self.custom:
+                    if self.layer2 is False and self.custom is False:
                         if normal is False:
                             sock.close()
                             sock = None
@@ -499,11 +499,11 @@ class session ():
                     error_handler(e, "failed transmitting fuzz block.", sock)
                     sock = None
                     continue
-                if not reconn:
+                if reconn is False:
                     break  #don't need resend
 
             # done with the socket.
-            if not self.layer2 and not self.custom and sock is not None and not self.keep_alive:
+            if self.layer2 is False and self.custom is False and sock is not None and self.keep_alive is False:
                 sock.close()
                 sock = None
 
