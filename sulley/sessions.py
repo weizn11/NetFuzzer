@@ -599,8 +599,7 @@ class session ():
                 if self.custom_detect_crash_callback(sock, target):
                     # 目标crash
                     if len(self.fuzz_store_list) > self.fuzz_store_limit:
-                        swapList = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
-                        self.fuzz_store_list = swapList
+                        self.fuzz_store_list = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
                         os._exit(0)
                     else:
@@ -611,8 +610,7 @@ class session ():
                 if target.detect_crash_via_ping():
                     # 目标crash
                     if len(self.fuzz_store_list) > self.fuzz_store_limit:
-                        swapList = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
-                        self.fuzz_store_list = swapList
+                        self.fuzz_store_list = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
                         os._exit(0)
                     else:
@@ -623,8 +621,7 @@ class session ():
                 if target.detect_crash_via_tcp_port():
                     # 目标crash
                     if len(self.fuzz_store_list) > self.fuzz_store_limit:
-                        swapList = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
-                        self.fuzz_store_list = swapList
+                        self.fuzz_store_list = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
                         os._exit(0)
                     else:
@@ -635,8 +632,7 @@ class session ():
                 if target.detect_crash_via_udp_port():
                     # 目标crash
                     if len(self.fuzz_store_list) > self.fuzz_store_limit:
-                        swapList = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
-                        self.fuzz_store_list = swapList
+                        self.fuzz_store_list = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
                         os._exit(0)
                     else:
@@ -691,8 +687,7 @@ class session ():
             #存储fuzz数据
             if self.fuzz_store_limit is not None and self.fuzz_store_limit > 0:
                 if len(self.fuzz_store_list) >= self.fuzz_store_limit + self.fuzz_store_limit / 3:
-                    swapList = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
-                    self.fuzz_store_list = swapList
+                    self.fuzz_store_list = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
                 self.fuzz_store_list.append(data)
 
             #发送fuzz数据包
