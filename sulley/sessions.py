@@ -464,6 +464,7 @@ class session ():
                             # Connect is needed only for TCP stream
                             if self.proto == socket.SOCK_STREAM:
                                 sock.connect((f_target.host, f_target.port))
+                            sock.settimeout(None)
                             if self.connect_success_callback(sock, f_target):
                                 sock.close()
                                 sock = None
@@ -480,6 +481,8 @@ class session ():
                             except Exception, e:
                                 self.logger.critical("connect_failed_callback() error. Exception: %s" % str(e))
                             continue
+                    else:
+                        sock.settimeout(None)
 
                 #向目标发送生成好的测试用例
                 try:
@@ -721,12 +724,15 @@ class session ():
                         raise e
             else:   #TCP or UDP
                 try:
+                    sock.settimeout(self.timeout)
                     if self.proto == socket.SOCK_STREAM:
                         sock.send(data)
                     else:
                         sock.sendto(data, (target.host, target.port))
+                    sock.settimeout(None)
                 except Exception, inst:
                     normal = False
+                    sock.settimeout(None)
                     self.logger.critical("Send error. Exception: %s" % inst)
                     try:
                         # 立刻测试目标设备是否crash
