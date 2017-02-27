@@ -132,7 +132,8 @@ class session ():
                   pinger_threshold=None,    #是否开启ping检测crash
                   tcpScan_threshold=None,   #是否开启tcp scan检测crash
                   udpScan_threshold=None,   #是否开启udp scan检测crash
-                  cusDect_threshold=None    #是否开启自定义callback函数检测crash
+                  cusDect_threshold=None,   #是否开启自定义callback函数检测crash
+                  procDect_threshold=None   #是否开启procmon检测crash
                 ):
 
         log_level=logging.INFO
@@ -174,6 +175,7 @@ class session ():
         self.tcpScan_threshold   = tcpScan_threshold
         self.udpScan_threshold   = udpScan_threshold
         self.cusDect_threshold   = cusDect_threshold
+        self.procDect_threshold  = procDect_threshold
 
         #创建网络监视器
         if self.sniff_switch:
@@ -371,7 +373,8 @@ class session ():
             self.logger.info("Sniff thread start.")
 
         #启动进程监视器
-        f_target.procmon_start()
+        if self.procDect_threshold is not None:
+            f_target.procmon_start()
 
         self.logger.info("Wait for start...")
         self.start_wait_callback()
@@ -640,6 +643,26 @@ class session ():
                         os._exit(0)
                     else:
                         return True
+
+        # 从进程监视器中获取进程信息
+        if self.procDect_threshold and target.procmon:
+            if self.fuzz_send_count % self.procDect_threshold == 0 or prom is True:
+                crash  = False
+                report = None
+                try:
+                    crash, report = target.procmon.fetch_procmon_status()
+                except Exception, e:
+                    self.logger.critical("fetch_procmon_status() error. Exception: %s" % str(e))
+                    os._exit(0)
+                if crash:
+                    # 测试用例造成进程crash，调用crash回调函数，传入crash报告。
+                    try:
+                        if not self.fetch_proc_crash_callback(report, self.fuzz_store_list):
+                            print "Fuzzing complete."
+                            os._exit(0)
+                    except Exception, e:
+                        self.logger.critical("fetch_proc_crash_callback() error. Exception: %s" % str(e))
+
         return False
 
     ####################################################################################################################
@@ -664,8 +687,6 @@ class session ():
             normal = True
             againMutate = False
             reconn = False
-            crash = False
-            report = None
 
             #如果UDP数据包大于65507，则进行截断。
             if self.proto == socket.SOCK_DGRAM:
@@ -746,22 +767,6 @@ class session ():
             self.fuzz_send_count += 1
             #通过monitor测试目标设备是否crash
             self.detect_crash(sock, target, False)
-
-            #从进程监视器中获取进程信息
-            if target.procmon:
-                try:
-                    crash, report = target.procmon.fetch_procmon_status()
-                except Exception, e:
-                    self.logger.critical("fetch_procmon_status() error. Exception: %s" % str(e))
-                    os._exit(0)
-                if crash:
-                    #测试用例造成进程crash，调用crash回调函数，传入crash报告。
-                    try:
-                        if not self.fetch_proc_crash_callback(report, self.fuzz_store_list):
-                            print "Fuzzing complete."
-                            os._exit(0)
-                    except Exception, e:
-                        self.logger.critical("fetch_proc_crash_callback() error. Exception: %s" % str(e))
 
             #发送结束后的回调函数
             try:
