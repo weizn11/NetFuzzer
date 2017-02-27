@@ -1,4 +1,4 @@
-所有callback函数：<br>
+callback函数：<br>
 ---
 ex_send_callback()                #自定义发送函数<br>
 connect_failed_callback()         #连接失败回调函数<br>
