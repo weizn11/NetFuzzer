@@ -17,7 +17,7 @@ packet_handler_callback()         #网络嗅探器抓取到的数据包回�
 <br><br>
 其它API：<br>
 ---
-get_name()                        #获取结构名称<br>
+get_name()                        #获取block名称<br>
 get_field_value()                 #获取block中字段的值<br>
 set_field_value()                 #设置block中字段的值<br>
 dump_corpus_file()                #将用户定义的block结构dump到AFL语料库中<br>
