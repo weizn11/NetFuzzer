@@ -8,6 +8,10 @@ import sulley.sessions
 import sulley.utils
 import sulley.ex_afl
 import binascii
+import struct
+import zlib
+import hashlib
+from utils.crc16 import CRC16
 
 BIG_ENDIAN      = ">"
 LITTLE_ENDIAN   = "<"
@@ -160,31 +164,74 @@ def s_block_end (name=None):
 
     blocks.CURRENT.pop()
 
-
-def s_checksum (block_name, algorithm="crc32", length=0, endian="<", name=None):
+def s_checksum (data, algorithm="crc32", endian=">"):
     '''
-    Create a checksum block bound to the block with the specified name. You *can not* create a checksum for any
-    currently open blocks.
+    Calculate and return the checksum (in raw bytes) over the supplied data.
 
-    @type  block_name: String
-    @param block_name: Name of block to apply sizer to
-    @type  algorithm:  String
-    @param algorithm:  (Optional, def=crc32) Checksum algorithm to use. (crc32, adler32, md5, sha1)
-    @type  length:     Integer
-    @param length:     (Optional, def=0) Length of checksum, specify 0 to auto-calculate
-    @type  endian:     Character
-    @param endian:     (Optional, def=LITTLE_ENDIAN) Endianess of the bit field (LITTLE_ENDIAN: <, BIG_ENDIAN: >)
-    @type  name:       String
-    @param name:       Name of this checksum field
+    @type  data: Raw
+    @param data: Rendered block data to calculate checksum over.
+
+    @rtype:  Raw
+    @return: Checksum.
     '''
 
-    # you can't add a checksum for a block currently in the stack.
-    if block_name in blocks.CURRENT.block_stack:
-        raise sex.SullyRuntimeError("CAN N0T ADD A CHECKSUM FOR A BLOCK CURRENTLY IN THE STACK")
+    def ip_checksum(data):
+        cksum   = 0
+        idx     = 0
+        size    = len(data)
 
-    checksum = blocks.checksum(block_name, blocks.CURRENT, algorithm, length, endian, name)
-    blocks.CURRENT.push(checksum)
+        def carry_around_add(a, b):
+            c = a + b
+            return (c & 0xffff) + (c >> 16)
 
+        while size > 1:
+            w = ord(data[idx]) + (ord(data[idx + 1]) << 8)
+            cksum = carry_around_add(cksum, w)
+            idx += 2
+            size -= 2
+        if size > 0:
+            w = ord(data[-1]) << 8
+            cksum = carry_around_add(cksum, w)
+
+        return ~cksum & 0xffff
+
+    if type(algorithm) is str:
+        if algorithm == "crc32":
+            return struct.pack(endian+"L", (zlib.crc32(data) & 0xFFFFFFFFL))
+
+        elif algorithm == "adler32":
+            return struct.pack(endian+"L", (zlib.adler32(data) & 0xFFFFFFFFL))
+
+        elif algorithm == "md5":
+            digest = hashlib.md5(data).digest()
+
+            # TODO: is this right?
+            if endian == ">":
+                (a, b, c, d) = struct.unpack("<LLLL", digest)
+                digest       = struct.pack(">LLLL", a, b, c, d)
+
+            return digest
+
+        elif algorithm == "sha1":
+            digest = hashlib.sha1(data).digest()
+
+            # TODO: is this right?
+            if endian == ">":
+                (a, b, c, d, e) = struct.unpack("<LLLLL", digest)
+                digest          = struct.pack(">LLLLL", a, b, c, d, e)
+
+            return digest
+        elif algorithm == "crc16":
+                return struct.pack(endian+"H", CRC16(data).intchecksum())
+        elif algorithm == "ip":
+            try:
+                return struct.pack(endian+"H", ip_checksum(data))
+            except Exception, e:
+                raise Exception("ip_checksum error. data length: %d. Exception: %s" % (len(data), str(e)))
+        else:
+            raise sex.SullyRuntimeError("INVALID CHECKSUM ALGORITHM SPECIFIED: %s" % algorithm)
+    else:
+        raise Exception("s_checksum() data parameter type error.")
 
 def s_repeat (block_name, min_reps=0, max_reps=None, step=1, variable=None, fuzzable=True, name=None):
     '''
@@ -414,6 +461,8 @@ def s_string (value, size=-1, padding="\x00", encoding="ascii", fuzzable=True, m
     @param name:     (Optional, def=None) Specifying a name gives you direct access to a primitive
     '''
 
+    if size != -1 and max_len != 0:
+        raise Exception("'size' and 'max_len' parameters can not be set at the same time, please see the code comments.")
     s = primitives.string(value, size, padding, encoding, fuzzable, max_len, name)
     blocks.CURRENT.push(s)
 
