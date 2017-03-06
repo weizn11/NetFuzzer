@@ -358,7 +358,7 @@ class session ():
         for i in range(3):
             print str(3 - i) + " ",
             sys.stdout.flush()
-            time.sleep(1)
+            time.sleep(0.3)
         print "\n"
 
         #启动网络监视器
