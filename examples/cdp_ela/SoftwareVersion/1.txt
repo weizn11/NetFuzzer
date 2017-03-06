@@ -1,0 +1,4 @@
+Cisco IOS Software, 3600 Software (C3660-JK9O3S-M), Version 12.4(25d), RELEASE SOFTWARE (fc1)
+Technical Support: http://www.cisco.com/techsupport
+Copyright (c) 1986-2010 by Cisco Systems, Inc.
+Compiled Wed 18-Aug-10 07:31 by prod_rel_team
