@@ -8,13 +8,13 @@ try:
     import afl
 except:
     print "[ERROR] 无法加载\"afl\"模块,请输入以下命令安装:\nsudo apt-get install python-afl"
-    os._exit(-1)
+    os.kill(0 - os.getpid(), signal.SIGKILL)
 
 try:
     import psutil
 except:
     print "[ERROR] 无法加载\"psutil\"模块,请输入以下命令安装:\npip install psutil"
-    os._exit(-1)
+    os.kill(0 - os.getpid(), signal.SIGKILL)
 
 ##############################################################################
 def dump_corpus_file(dir, block):
@@ -88,7 +88,7 @@ class AFL(object):
             buf = pipe.read(100)
             if len(buf) < 5:
                 print "[ERROR] Not found Python."
-                os._exit(-1)
+                os.kill(0 - os.getpid(), signal.SIGKILL)
             if buf[-1] == '\n':
                 buf = buf[:-1]
             self.pythonPath = buf
@@ -98,21 +98,21 @@ class AFL(object):
             buf = pipe.read(100)
             if len(buf) < 5:
                 print "[ERROR] Not found py-afl-fuzz."
-                os._exit(-1)
+                os.kill(0 - os.getpid(), signal.SIGKILL)
             if buf[-1] == '\n':
                 buf = buf[:-1]
             self.aflPath = buf
             pipe.close()
         except Exception, e:
             print "[Exception] %s" % str(e)
-            os._exit(-1)
+            os.kill(0 - os.getpid(), signal.SIGKILL)
 
         if not os.path.exists(self.aflPath):
             print "[ERROR] Not found '%s'." % self.aflPath
-            os._exit(-1)
+            os.kill(0 - os.getpid(), signal.SIGKILL)
         if not os.path.exists(self.pythonPath):
             print "[ERROR] Not found '%s'." % self.pythonPath
-            os._exit(-1)
+            os.kill(0 - os.getpid(), signal.SIGKILL)
 
         try:
             self.name.index(":")
@@ -154,7 +154,7 @@ class AFL(object):
             pipe.close()
             if buf[0:4] != "core":
                 print "[ERROR] Failed execute command 'echo core >/proc/sys/kernel/core_pattern'."
-                os._exit(-1)
+                os.kill(0 - os.getpid(), signal.SIGKILL)
             AFL.needDelTmp = False
 
         #detect repeat name
@@ -194,7 +194,7 @@ class AFL(object):
         #check input directory
         if not os.path.exists(self.corpusDir):
             print "[ERROR] The '%s' directory does not seem to be valid." % self.corpusDir
-            os._exit(0)
+            os.kill(0 - os.getpid(), signal.SIGKILL)
 
         #start py-afl-fuzz subprocess
         self.AFLpid = os.fork()
