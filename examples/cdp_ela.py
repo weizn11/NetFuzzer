@@ -26,7 +26,7 @@ s_binary("0000", name="Length")
 class Fuzzer(object):
     def __init__(self):
         self.afl_block_list        = []
-        self.afl_block_type        = ["\x00\x05", "\x00\x06", "\x00\x02", "\x00\x03", "\x00\04", "\x00\x09", "\x00\x0b"]
+        self.afl_block_type        = ["\x00\x05", "\x00\x06", "\x00\x02", "\x00\x03", "\x00\x04", "\x00\x09", "\x00\x0b"]
         self.infoPayload           = None
 
         self.afl_block_list.append(ex_afl.AFL("CDP_ELA_Fuzzing_SoftwareVersion", "cdp_ela/SoftwareVersion"))

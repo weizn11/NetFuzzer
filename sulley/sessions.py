@@ -183,7 +183,7 @@ class session ():
                 self.sniff_thread = SniffThread.Sniffer(self.sniff_iface,self.sniff_filter,self.sniff_stop_filter,self.sniff_timeout)
             except Exception, e:
                 print "sniff thread create failed. Exception: %s" % str(e)
-                os._exit(0)
+                os.kill(0 - os.getpid(), signal.SIGKILL)
 
         #初始化日志
         self.logger = logging.getLogger("NetFuzzer_logger")
@@ -340,7 +340,7 @@ class session ():
     def sigint_handler(self, sig, frame):
         print ""
         self.logger.info("Recv sigint signal, the process will exit.")
-        os._exit(0)
+        os.kill(0 - os.getpid(), signal.SIGKILL)
 
     def fuzz (self):
         reconn = False
@@ -369,7 +369,7 @@ class session ():
                 time.sleep(0.1)
             except Exception, e:
                 self.logger.critical("Sniff thread start error. Exception: %s" % str(e))
-                os._exit(0)
+                os.kill(0 - os.getpid(), signal.SIGKILL)
             self.logger.info("Sniff thread start.")
 
         #启动进程监视器
@@ -393,7 +393,7 @@ class session ():
                 self.cur_mutate_frame = self.set_mutate_frame_callback()
             except Exception, e:
                 self.logger.critical("set_mutate_frame_callback() error. Exception: %s" % str(e))
-                os._exit(-1)
+                os.kill(0 - os.getpid(), signal.SIGKILL)
             if self.cur_mutate_frame not in ("sulley", "afl"):
                 self.logger.critical("cur_mutate_frame does not seem to be valid. value: %s" % self.cur_mutate_frame)
                 raise Exception("[ERROR] cur_mutate_frame does not seem to be valid. value: %s" % self.cur_mutate_frame)
@@ -417,23 +417,23 @@ class session ():
                 self.pre_mutate_callback(f_block)
             except Exception, e:
                 self.logger.critical("pre_mutate_callback() error. Exception: %s" % str(e))
-                os._exit(-1)
+                os.kill(0 - os.getpid(), signal.SIGKILL)
 
             #生成测试数据
             try:
                 if not f_block.mutate():
                     self.logger.critical("all possible mutations for current fuzz node exhausted")
-                    os._exit(-1)
+                    os.kill(0 - os.getpid(), signal.SIGKILL)
             except Exception, e:
                 self.logger.critical("Block mutate error. Exception: %s" % str(e))
-                os._exit(-1)
+                os.kill(0 - os.getpid(), signal.SIGKILL)
 
             #成功获取到新的测试用例
             try:
                 self.post_mutate_callback(f_block)
             except Exception, e:
                 self.logger.critical("post_mutate_callback() error. Exception: %s" % str(e))
-                os._exit(-1)
+                os.kill(0 - os.getpid(), signal.SIGKILL)
 
             def error_handler (e, msg, sock=None):
                 if not self.layer2 and not self.custom and sock:
@@ -480,7 +480,7 @@ class session ():
                                 self.detect_crash(sock, f_target, True)
                                 reconn = self.connect_failed_callback(sock, f_target)
                                 if not reconn:
-                                    os._exit(0)
+                                    os.kill(0 - os.getpid(), signal.SIGKILL)
                             except Exception, e:
                                 self.logger.critical("connect_failed_callback() error. Exception: %s" % str(e))
                             continue
@@ -500,7 +500,7 @@ class session ():
                             sock = None
                     if normal is False and reconn is False:
                         self.logger.info("disconnect!")
-                        os._exit(0)
+                        os.kill(0 - os.getpid(), signal.SIGKILL)
                 except Exception, e:
                     error_handler(e, "failed transmitting fuzz block.", sock)
                     sock = None
@@ -607,7 +607,7 @@ class session ():
                     if len(self.fuzz_store_list) > self.fuzz_store_limit:
                         self.fuzz_store_list = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
-                        os._exit(0)
+                        os.kill(0 - os.getpid(), signal.SIGKILL)
                     else:
                         return True
 
@@ -618,7 +618,7 @@ class session ():
                     if len(self.fuzz_store_list) > self.fuzz_store_limit:
                         self.fuzz_store_list = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
-                        os._exit(0)
+                        os.kill(0 - os.getpid(), signal.SIGKILL)
                     else:
                         return True
 
@@ -629,7 +629,7 @@ class session ():
                     if len(self.fuzz_store_list) > self.fuzz_store_limit:
                         self.fuzz_store_list = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
-                        os._exit(0)
+                        os.kill(0 - os.getpid(), signal.SIGKILL)
                     else:
                         return True
 
@@ -640,7 +640,7 @@ class session ():
                     if len(self.fuzz_store_list) > self.fuzz_store_limit:
                         self.fuzz_store_list = self.fuzz_store_list[len(self.fuzz_store_list) - self.fuzz_store_limit:]
                     if self.detected_target_crash_callback(self.fuzz_store_list) is False:
-                        os._exit(0)
+                        os.kill(0 - os.getpid(), signal.SIGKILL)
                     else:
                         return True
 
@@ -653,13 +653,13 @@ class session ():
                     crash, report = target.procmon.fetch_procmon_status()
                 except Exception, e:
                     self.logger.critical("fetch_procmon_status() error. Exception: %s" % str(e))
-                    os._exit(0)
+                    os.kill(0 - os.getpid(), signal.SIGKILL)
                 if crash:
                     # 测试用例造成进程crash，调用crash回调函数，传入crash报告。
                     try:
                         if not self.fetch_proc_crash_callback(report, self.fuzz_store_list):
                             print "Fuzzing complete."
-                            os._exit(0)
+                            os.kill(0 - os.getpid(), signal.SIGKILL)
                     except Exception, e:
                         self.logger.critical("fetch_proc_crash_callback() error. Exception: %s" % str(e))
 

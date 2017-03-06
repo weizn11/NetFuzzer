@@ -100,7 +100,8 @@ while afl.loop(99999999):
     #open write pipe
     if pipeAlive is False:
         if open_pipe() is False:
-            os.kill(os.getppid(), signal.SIGKILL)
+            os.kill(0 - os.getppid(), signal.SIGKILL)
+            os.kill(0 - os.getpid(), signal.SIGKILL)
         else:
             pipeAlive = True
 
@@ -125,7 +126,8 @@ while afl.loop(99999999):
     #logger("Send fuzz case length: %d" % (len(payload)))
     if ipc.pipe_send(wrPipe, payload) is False:
         logger("Send fuzz case failed. The 'py-afl-fuzz' process will exit.")
-        os.kill(os.getppid(), signal.SIGKILL)
+        os.kill(0 - os.getppid(), signal.SIGKILL)
+        os.kill(0 - os.getpid(), signal.SIGKILL)
 
 ##############################################################################
 logger("Break loop.")

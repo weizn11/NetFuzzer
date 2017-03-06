@@ -10,7 +10,9 @@ import sulley.ex_afl
 import binascii
 import struct
 import zlib
+import signal
 import hashlib
+import os
 from utils.crc16 import CRC16
 
 BIG_ENDIAN      = ">"
@@ -164,6 +166,9 @@ def s_block_end (name=None):
 
     blocks.CURRENT.pop()
 
+def s_exit():
+    os.kill(0 - os.getpid(), signal.SIGKILL)
+
 def s_checksum (data, algorithm="crc32", endian=">"):
     '''
     Calculate and return the checksum (in raw bytes) over the supplied data.
@@ -180,20 +185,16 @@ def s_checksum (data, algorithm="crc32", endian=">"):
         idx     = 0
         size    = len(data)
 
-        def carry_around_add(a, b):
-            c = a + b
-            return (c & 0xffff) + (c >> 16)
-
         while size > 1:
-            w = ord(data[idx]) + (ord(data[idx + 1]) << 8)
-            cksum = carry_around_add(cksum, w)
-            idx += 2
-            size -= 2
+            cksum += ord(data[idx]) + (ord(data[idx+1]) << 8)
+            size  -= 2
+            idx   += 2
         if size > 0:
-            w = ord(data[-1]) << 8
-            cksum = carry_around_add(cksum, w)
+            cksum += ord(data[-1]) << 8
+        while cksum >> 16:
+            cksum = (cksum >> 16) + (cksum & 0xffff)
 
-        return ~cksum & 0xffff
+        return (~cksum & 0xffff)
 
     if type(algorithm) is str:
         if algorithm == "crc32":
