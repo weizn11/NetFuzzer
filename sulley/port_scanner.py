@@ -121,12 +121,21 @@ class TCPScanner(object):
             count += 1
             try:
                 soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                soc.settimeout(1)
-                soc.connect((self.host, self.port))
             except Exception, e:
+                soc = None
                 continue
-            soc.close()
-            return True
+            else:
+                try:
+                    soc.settimeout(2)
+                    soc.connect((self.host, self.port))
+                except Exception, e:
+                    # Connected failed.
+                    soc.close()
+                    soc = None
+                else:
+                    # Connected success.
+                    soc.close()
+                    return True
         if soc is not None:
             soc.close()
         return False

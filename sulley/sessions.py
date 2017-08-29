@@ -450,7 +450,7 @@ class session ():
                     sock = custom_sock(f_target, self.ex_send_callback)
 
                 else:  #TCP or UDP
-                    if not sock or not self.keep_alive:
+                    if sock is None:
                         #创建socket
                         try:
                             (family, socktype, proto, canonname, sockaddr) = \
@@ -467,7 +467,6 @@ class session ():
                             # Connect is needed only for TCP stream
                             if self.proto == socket.SOCK_STREAM:
                                 sock.connect((f_target.host, f_target.port))
-                            sock.settimeout(None)
                             if self.connect_success_callback(sock, f_target):
                                 sock.close()
                                 sock = None
@@ -484,8 +483,6 @@ class session ():
                             except Exception, e:
                                 self.logger.critical("connect_failed_callback() error. Exception: %s" % str(e))
                             continue
-                    else:
-                        sock.settimeout(None)
 
                 #向目标发送生成好的测试用例
                 try:
@@ -495,7 +492,7 @@ class session ():
                         if normal is False:
                             sock.close()
                             sock = None
-                        if reconn and sock is not None:
+                        if reconn is True and sock is not None:
                             sock.close()
                             sock = None
                     if normal is False and reconn is False:
@@ -505,15 +502,25 @@ class session ():
                     error_handler(e, "failed transmitting fuzz block.", sock)
                     sock = None
                     continue
-                if reconn is False:
-                    break  #don't need resend
+                if reconn is True:
+                    blockIndex = 0
+                    aflBlockIndex = 0
+                break
 
             # done with the socket.
-            if self.layer2 is False and self.custom is False and sock is not None and self.keep_alive is False:
-                sock.close()
-                sock = None
+            if self.layer2 is False and self.custom is False and sock is not None \
+                    and self.keep_alive is False and againMutate is False:
+                if self.cur_mutate_frame == "sulley":
+                    if blockIndex + 1 == len(self.fuzz_blocks):
+                        sock.close()
+                        sock = None
+                else:
+                    if aflBlockIndex + 1 == len(self.afl_fuzz_blocks):
+                        sock.close()
+                        sock = None
 
-            if againMutate is False:
+
+            if againMutate is False and reconn is False:
                 if self.cur_mutate_frame == "sulley":
                     blockIndex += 1
                 else:
@@ -539,9 +546,12 @@ class session ():
         @param data: 生成好的测试用例
         @type: list
         @param fuzzStoreList: 存储的fuzz数据
-        @return: (boolean, boolean) 1.True: 重新发送此数据包 False:不用重新发送  2.True: 用新的测试用例再次测试此步骤 False:不用再做此步骤测试
+        @return: (boolean, boolean, boolean)
+        1.True：重新与目标建立连接 False:不用重新建立连接
+        2.True: 重新发送此数据包 False:不用重新发送
+        3.True: 用新的测试用例再次测试此步骤 False:不用再做此步骤测试
         '''
-        return (False, False)
+        return (False, False, False)
 
     def post_send(self, sock, data, fuzzStoreList):
         '''
@@ -551,10 +561,13 @@ class session ():
         @param data: 生成好的测试用例
         @type: list
         @param fuzzStoreList: 存储的fuzz数据
-        @return: (boolean, boolean) 1.True: 重新发送此数据包 False:不用重新发送  2.True: 用新的测试用例再次测试此步骤 False:不用再做此步骤测试
+        @return: (boolean, boolean, boolean)
+        1.True：重新与目标建立连接 False:不用重新建立连接
+        2.True: 重新发送此数据包 False:不用重新发送
+        3.True: 用新的测试用例再次测试此步骤 False:不用再做此步骤测试
         '''
-        (resend, againMutate) = self.post_send_callback(sock, data, fuzzStoreList)
-        return (resend, againMutate)
+        (reconn, resend, againMutate) = self.post_send_callback(sock, data, fuzzStoreList)
+        return (reconn, resend, againMutate)
 
     ####################################################################################################################
     def packet_handler_callback(self, pkt):
@@ -750,10 +763,8 @@ class session ():
                         sock.send(data)
                     else:
                         sock.sendto(data, (target.host, target.port))
-                    sock.settimeout(None)
                 except Exception, inst:
                     normal = False
-                    sock.settimeout(None)
                     self.logger.critical("Send error. Exception: %s" % inst)
                     try:
                         # 立刻测试目标设备是否crash
@@ -771,11 +782,16 @@ class session ():
             #发送结束后的回调函数
             try:
                 #返回重发和重新对此步骤生成测试用例的标识。
-                (sendFlag, againMutate) = self.post_send(sock, data, self.fuzz_store_list)
+                (reconn2, sendFlag, againMutate) = self.post_send(sock, data, self.fuzz_store_list)
+                if reconn2 is True:
+                    reconn = True
             except Exception, e:
                 self.logger.critical("post_send() error. Exception: %s" % str(e))
                 # 立刻测试目标设备是否crash
                 self.detect_crash(sock, target, True)
+        if reconn is True:
+            # 立刻测试目标设备是否crash
+            self.detect_crash(sock, target, True)
 
         return (reconn, normal, againMutate)
 

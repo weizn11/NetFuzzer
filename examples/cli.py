@@ -14,10 +14,10 @@ class Fuzzer(object):
         while True:
             payload = block.render()
             payload += '\n'
-            payload = "hostname " + payload
+            # payload = "hostname " + payload
             block.set_mutate_payload(payload)
 
-            if payload.find("q\n") != -1 or payload.find("Q\n") != -1:
+            if payload[0].lower() == 'q' or payload[0].lower() == 'e':
                 block.mutate()
                 continue
             else:
@@ -27,27 +27,28 @@ class Fuzzer(object):
     def connect_success_callback(self, sock, target):
         time.sleep(0.2)
         print sock.recv(1000)
-        sock.send("123\n")
-        time.sleep(0.2)
-        print sock.recv(1000)
-        sock.send("en\n")
+        sock.send("admin\n")
         time.sleep(0.2)
         print sock.recv(1000)
         sock.send("123\n")
+        time.sleep(0.2)
+        print sock.recv(1000)
+        sock.send("sys\n")
         return False
 
 
     def post_send_callback(self, sock, data, fuzzStoreList):
-        sock.settimeout(0)
+        reconn = False
+        sock.settimeout(2)
         try:
             buf = sock.recv(65536)
-            print buf
+            print "Recv length: %d. Payload: %s" % (len(buf), buf)
+            if len(buf) <= 0:
+                reconn = True
         except Exception, e:
             print "recv error. Exception: %s" % str(e)
-        finally:
-            sock.settimeout(2)
 
-        return (False, False)
+        return (reconn, False, False)
 
     def detect_target_crash_callback(self, fuzzStoreList):
         print binascii.b2a_hex(fuzzStoreList[-1])
@@ -60,17 +61,16 @@ class Fuzzer(object):
 
 if __name__ == '__main__':
     fuzz = Fuzzer()
-    sess = sessions.session(proto="tcp", keep_alive=True, tcpScan_threshold=1000, sock_timeout=2,
+    sess = sessions.session(proto="tcp", keep_alive=True, pinger_threshold=1000, sock_timeout=3,
                             fuzz_store_limit=10000, loop_sleep_time=0.0005)
 
-    sess.set_mutate_frame_callback        = fuzz.set_mutate_frame_callback
-    sess.post_mutate_callback             = fuzz.post_mutate_callback
+    sess.set_mutate_frame_callback          = fuzz.set_mutate_frame_callback
+    sess.post_mutate_callback               = fuzz.post_mutate_callback
     sess.detected_target_crash_callback     = fuzz.detect_target_crash_callback
-    sess.connect_success_callback         = fuzz.connect_success_callback
-    sess.post_send_callback               = fuzz.post_send_callback
+    sess.connect_success_callback           = fuzz.connect_success_callback
+    sess.post_send_callback                 = fuzz.post_send_callback
 
-
-    target = sessions.target("10.0.0.1", 23)
+    target = sessions.target("192.168.1.2", 23)
     afl_block = ex_afl.AFL("CLI_FUZZ", "in")
     sess.add_afl_block(afl_block)
     sess.add_target(target)
